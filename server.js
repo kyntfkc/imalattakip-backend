@@ -22,7 +22,7 @@ const dashboardSettingsRoutes = require('./routes/dashboardSettings');
 const { initDatabase, getDatabase, closeDatabase } = require('./database/postgresql');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());

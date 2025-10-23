@@ -149,6 +149,35 @@ async function createTables(client) {
   for (const sql of indexes) {
     await client.query(sql);
   }
+  
+  // Create default admin user
+  await createDefaultUser(client);
+}
+
+// Create default admin user
+async function createDefaultUser(client) {
+  try {
+    const bcrypt = require('bcryptjs');
+    
+    // Check if admin user already exists
+    const result = await client.query('SELECT id FROM users WHERE username = $1', ['admin']);
+    
+    if (result.rows.length === 0) {
+      // Create admin user
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      await client.query(
+        'INSERT INTO users (username, password, role) VALUES ($1, $2, $3)',
+        ['admin', hashedPassword, 'admin']
+      );
+      
+      console.log('✅ Varsayılan admin kullanıcısı oluşturuldu (admin/admin123)');
+    } else {
+      console.log('ℹ️ Admin kullanıcısı zaten mevcut');
+    }
+  } catch (error) {
+    console.error('❌ Varsayılan kullanıcı oluşturma hatası:', error);
+  }
 }
 
 // Get database connection
