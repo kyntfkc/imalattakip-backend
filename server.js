@@ -89,7 +89,8 @@ app.get('/api/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.0.0'
+    version: '1.0.0',
+    database: process.env.DATABASE_URL ? 'Connected' : 'Not configured'
   });
 });
 
@@ -110,9 +111,7 @@ app.use('*', (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    await initDatabase();
-    logger.info('Veritabanı başarıyla başlatıldı');
-    
+    // Start server first
     app.listen(PORT, () => {
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
       logger.info(`📊 Health check: http://localhost:${PORT}/api/health`);
@@ -122,6 +121,15 @@ async function startServer() {
       console.log(`📁 Dropbox Konumu: ${__dirname}`);
       console.log(`\n✨ Otomatik yedekleme aktif!`);
     });
+    
+    // Initialize database in background
+    try {
+      await initDatabase();
+      logger.info('Veritabanı başarıyla başlatıldı');
+    } catch (dbError) {
+      logger.error('Veritabanı başlatma hatası:', dbError);
+      // Don't exit, let server run without DB
+    }
   } catch (error) {
     logger.error('Sunucu başlatılamadı:', error);
     process.exit(1);
