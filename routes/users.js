@@ -5,29 +5,27 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all users (admin only)
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Yetkisiz erişim' });
   }
   
-  const db = getDatabase();
-  
-  db.all(
-    'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC',
-    [],
-    (err, users) => {
-      if (err) {
-        global.logger.error('Kullanıcı listesi hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      res.json(users);
-    }
-  );
+  try {
+    const db = getDatabase();
+    const result = await db.query(
+      'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC'
+    );
+    
+    global.logger.info(`Kullanıcı listesi getirildi: ${result.rows.length} kullanıcı`);
+    res.json(result.rows);
+  } catch (error) {
+    global.logger.error('Kullanıcı listesi hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Update user role (admin only)
-router.put('/:id/role', authenticateToken, (req, res) => {
+router.put('/:id/role', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Yetkisiz erişim' });
   }
@@ -35,38 +33,37 @@ router.put('/:id/role', authenticateToken, (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
   
-  if (!['admin', 'user'].includes(role)) {
+  if (!['admin', 'normal_user'].includes(role)) {
     return res.status(400).json({ error: 'Geçersiz rol' });
   }
   
-  const db = getDatabase();
-  
-  db.run(
-    'UPDATE users SET role = ? WHERE id = ?',
-    [role, id],
-    function(err) {
-      if (err) {
-        global.logger.error('Kullanıcı rol güncelleme hatası:', err);
-        return res.status(500).json({ error: 'Rol güncellenemedi' });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-      }
-      
-      // Log the action
-      db.run(
-        'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-        [req.user.username, 'Kullanıcı Rol Güncelleme', `Kullanıcı ID: ${id}, Yeni Rol: ${role}`]
-      );
-      
-      res.json({ message: 'Kullanıcı rolü başarıyla güncellendi' });
+  try {
+    const db = getDatabase();
+    const result = await db.query(
+      'UPDATE users SET role = $1 WHERE id = $2',
+      [role, id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-  );
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [req.user.username, 'Kullanıcı Rol Güncelleme', `Kullanıcı ID: ${id}, Yeni Rol: ${role}`]
+    );
+    
+    global.logger.info(`Kullanıcı rolü güncellendi: ID ${id}, Rol: ${role}`);
+    res.json({ message: 'Kullanıcı rolü başarıyla güncellendi' });
+  } catch (error) {
+    global.logger.error('Kullanıcı rol güncelleme hatası:', error);
+    res.status(500).json({ error: 'Rol güncellenemedi' });
+  }
 });
 
 // Delete user (admin only)
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Yetkisiz erişim' });
   }
@@ -74,39 +71,41 @@ router.delete('/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
   
   // Cannot delete self
-  if (parseInt(id) === req.user.userId) {
+  if (parseInt(id) === req.user.id) {
     return res.status(400).json({ error: 'Kendi hesabınızı silemezsiniz' });
   }
   
-  const db = getDatabase();
-  
-  // First get user details for logging
-  db.get('SELECT username FROM users WHERE id = ?', [id], (err, user) => {
-    if (err) {
-      global.logger.error('Kullanıcı silme hatası:', err);
-      return res.status(500).json({ error: 'Sunucu hatası' });
-    }
+  try {
+    const db = getDatabase();
     
-    if (!user) {
+    // First get user details for logging
+    const userResult = await db.query('SELECT username FROM users WHERE id = $1', [id]);
+    
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
     
+    const username = userResult.rows[0].username;
+    
     // Delete user
-    db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
-      if (err) {
-        global.logger.error('Kullanıcı silme hatası:', err);
-        return res.status(500).json({ error: 'Kullanıcı silinemedi' });
-      }
-      
-      // Log the action
-      db.run(
-        'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-        [req.user.username, 'Kullanıcı Silme', `Silinen kullanıcı: ${user.username}`]
-      );
-      
-      res.json({ message: 'Kullanıcı başarıyla silindi' });
-    });
-  });
+    const deleteResult = await db.query('DELETE FROM users WHERE id = $1', [id]);
+    
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [req.user.username, 'Kullanıcı Silme', `Silinen kullanıcı: ${username}`]
+    );
+    
+    global.logger.info(`Kullanıcı silindi: ${username}`);
+    res.json({ message: 'Kullanıcı başarıyla silindi' });
+  } catch (error) {
+    global.logger.error('Kullanıcı silme hatası:', error);
+    res.status(500).json({ error: 'Kullanıcı silinemedi' });
+  }
 });
 
 module.exports = router;
