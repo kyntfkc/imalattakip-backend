@@ -47,22 +47,18 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Value ve label gerekli' });
     }
 
-    await db.run(
-      'UPDATE cinsi_settings SET value = ?, label = ? WHERE id = ?',
+    const db = getDatabase();
+    const result = await db.query(
+      'UPDATE cinsi_settings SET value = $1, label = $2 WHERE id = $3 RETURNING *',
       [value.toLowerCase().replace(/\s+/g, '-'), label.trim(), id]
     );
 
-    const updatedCinsi = await db.get(
-      'SELECT * FROM cinsi_settings WHERE id = ?',
-      [id]
-    );
-
-    if (!updatedCinsi) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Cinsi bulunamadı' });
     }
 
     global.logger.info(`Cinsi güncellendi: ${label} (${value})`);
-    res.json(updatedCinsi);
+    res.json(result.rows[0]);
   } catch (error) {
     global.logger.error('Cinsi güncelleme hatası:', error);
     res.status(500).json({ error: 'Cinsi güncellenemedi' });
@@ -73,13 +69,15 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const db = getDatabase();
     
-    const cinsi = await db.get('SELECT * FROM cinsi_settings WHERE id = ?', [id]);
-    if (!cinsi) {
+    const cinsiResult = await db.query('SELECT * FROM cinsi_settings WHERE id = $1', [id]);
+    if (cinsiResult.rows.length === 0) {
       return res.status(404).json({ error: 'Cinsi bulunamadı' });
     }
 
-    await db.run('DELETE FROM cinsi_settings WHERE id = ?', [id]);
+    const cinsi = cinsiResult.rows[0];
+    await db.query('DELETE FROM cinsi_settings WHERE id = $1', [id]);
     
     global.logger.info(`Cinsi silindi: ${cinsi.label} (${cinsi.value})`);
     res.json({ message: 'Cinsi başarıyla silindi' });
@@ -92,8 +90,10 @@ router.delete('/:id', async (req, res) => {
 // Varsayılan ayarlara dön
 router.post('/reset', async (req, res) => {
   try {
+    const db = getDatabase();
+    
     // Mevcut cinsi'leri sil
-    await db.run('DELETE FROM cinsi_settings');
+    await db.query('DELETE FROM cinsi_settings');
     
     // Varsayılan cinsi'leri ekle
     const defaultCinsi = [
@@ -107,8 +107,8 @@ router.post('/reset', async (req, res) => {
     ];
 
     for (const cinsi of defaultCinsi) {
-      await db.run(
-        'INSERT INTO cinsi_settings (value, label) VALUES (?, ?)',
+      await db.query(
+        'INSERT INTO cinsi_settings (value, label) VALUES ($1, $2)',
         [cinsi.value, cinsi.label]
       );
     }

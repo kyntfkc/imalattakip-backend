@@ -4,39 +4,37 @@ const { getDatabase } = require('../database/postgresql');
 const { authenticateToken } = require('../middleware/auth');
 
 // Dashboard ayarlarını getir
-router.get('/', authenticateToken, (req, res) => {
-  const db = getDatabase();
-  
-  db.get(
-    'SELECT settings FROM dashboard_settings WHERE user_id = ?',
-    [req.user.id],
-    (err, row) => {
-      if (err) {
-        console.error('Dashboard ayarları getirme hatası:', err);
-        return res.status(500).json({ error: 'Dashboard ayarları getirilemedi' });
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const db = getDatabase();
+    const result = await db.query(
+      'SELECT settings FROM dashboard_settings WHERE user_id = $1',
+      [req.user.id]
+    );
+    
+    if (result.rows.length > 0) {
+      try {
+        const settings = JSON.parse(result.rows[0].settings);
+        res.json({ settings });
+      } catch (parseError) {
+        console.error('Settings parse hatası:', parseError);
+        res.status(500).json({ error: 'Ayarlar parse edilemedi' });
       }
-      
-      if (row) {
-        try {
-          const settings = JSON.parse(row.settings);
-          res.json({ settings });
-        } catch (parseError) {
-          console.error('Settings parse hatası:', parseError);
-          res.status(500).json({ error: 'Ayarlar parse edilemedi' });
-        }
-      } else {
-        // Varsayılan ayarları döndür
-        const defaultSettings = {
-          unitOrder: ['ana-kasa', 'yarimamul', 'lazer-kesim', 'tezgah', 'cila', 'dokum', 'tedarik', 'satis', 'dis-kasa'],
-          hiddenUnits: [],
-          showFire: true,
-          showHas: true,
-          showLastUpdate: true
-        };
-        res.json({ settings: defaultSettings });
-      }
+    } else {
+      // Varsayılan ayarları döndür
+      const defaultSettings = {
+        unitOrder: ['ana-kasa', 'yarimamul', 'lazer-kesim', 'tezgah', 'cila', 'dokum', 'tedarik', 'satis', 'dis-kasa'],
+        hiddenUnits: [],
+        showFire: true,
+        showHas: true,
+        showLastUpdate: true
+      };
+      res.json({ settings: defaultSettings });
     }
-  );
+  } catch (error) {
+    console.error('Dashboard ayarları getirme hatası:', error);
+    res.status(500).json({ error: 'Dashboard ayarları getirilemedi' });
+  }
 });
 
 // Dashboard ayarlarını kaydet/güncelle
