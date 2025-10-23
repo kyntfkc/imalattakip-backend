@@ -5,42 +5,36 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Get external vault transactions
-router.get('/transactions', authenticateToken, (req, res) => {
-  const db = getDatabase();
-  
-  db.all(
-    `SELECT t.*, u.username as user_name 
-     FROM external_vault_transactions t 
-     LEFT JOIN users u ON t.user_id = u.id 
-     ORDER BY t.created_at DESC`,
-    [],
-    (err, transactions) => {
-      if (err) {
-        global.logger.error('Dış kasa işlem hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      res.json(transactions);
-    }
-  );
+router.get('/transactions', authenticateToken, async (req, res) => {
+  try {
+    const db = getDatabase();
+    const result = await db.query(
+      `SELECT t.*, u.username as user_name 
+       FROM external_vault_transactions t 
+       LEFT JOIN users u ON t.user_id = u.id 
+       ORDER BY t.created_at DESC`
+    );
+    
+    global.logger.info(`Dış kasa işlem listesi: ${result.rows.length} işlem`);
+    res.json(result.rows);
+  } catch (error) {
+    global.logger.error('Dış kasa işlem hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Get external vault stock
-router.get('/stock', authenticateToken, (req, res) => {
-  const db = getDatabase();
-  
-  db.all(
-    'SELECT * FROM external_vault_stock ORDER BY karat',
-    [],
-    (err, stock) => {
-      if (err) {
-        global.logger.error('Dış kasa stok hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      res.json(stock);
-    }
-  );
+router.get('/stock', authenticateToken, async (req, res) => {
+  try {
+    const db = getDatabase();
+    const result = await db.query('SELECT * FROM external_vault_stock ORDER BY karat');
+    
+    global.logger.info(`Dış kasa stok listesi: ${result.rows.length} kayıt`);
+    res.json(result.rows);
+  } catch (error) {
+    global.logger.error('Dış kasa stok hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Add external vault transaction

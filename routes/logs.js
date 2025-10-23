@@ -5,54 +5,51 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all system logs
-router.get('/', authenticateToken, (req, res) => {
-  const db = getDatabase();
-  const { page = 1, limit = 50, search } = req.query;
-  const offset = (page - 1) * limit;
-  
-  let query = 'SELECT * FROM system_logs';
-  let params = [];
-  
-  if (search) {
-    query += ' WHERE username LIKE ? OR action LIKE ? OR details LIKE ?';
-    params = [`%${search}%`, `%${search}%`, `%${search}%`];
-  }
-  
-  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(parseInt(limit), offset);
-  
-  db.all(query, params, (err, logs) => {
-    if (err) {
-      global.logger.error('Sistem logları getirme hatası:', err);
-      return res.status(500).json({ error: 'Sunucu hatası' });
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const db = getDatabase();
+    const { page = 1, limit = 50, search } = req.query;
+    const offset = (page - 1) * limit;
+    
+    let query = 'SELECT * FROM system_logs';
+    let params = [];
+    
+    if (search) {
+      query += ' WHERE username LIKE $1 OR action LIKE $2 OR details LIKE $3';
+      params = [`%${search}%`, `%${search}%`, `%${search}%`];
     }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    params.push(parseInt(limit), offset);
+    
+    const result = await db.query(query, params);
     
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) as total FROM system_logs';
     let countParams = [];
     
     if (search) {
-      countQuery += ' WHERE username LIKE ? OR action LIKE ? OR details LIKE ?';
+      countQuery += ' WHERE username LIKE $1 OR action LIKE $2 OR details LIKE $3';
       countParams = [`%${search}%`, `%${search}%`, `%${search}%`];
     }
     
-    db.get(countQuery, countParams, (err, countResult) => {
-      if (err) {
-        global.logger.error('Log sayısı getirme hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
+    const countResult = await db.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].total);
+    
+    global.logger.info(`Sistem logları: ${result.rows.length} log (toplam: ${total})`);
+    res.json({
+      logs: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
       }
-      
-      res.json({
-        logs,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: countResult.total,
-          pages: Math.ceil(countResult.total / limit)
-        }
-      });
     });
-  });
+  } catch (error) {
+    global.logger.error('Sistem logları getirme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Get log by ID

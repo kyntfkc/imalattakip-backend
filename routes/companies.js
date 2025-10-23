@@ -5,21 +5,17 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Get all companies
-router.get('/', authenticateToken, (req, res) => {
-  const db = getDatabase();
-  
-  db.all(
-    'SELECT * FROM companies ORDER BY created_at DESC',
-    [],
-    (err, companies) => {
-      if (err) {
-        global.logger.error('Firma listesi getirme hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      res.json(companies);
-    }
-  );
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const db = getDatabase();
+    const result = await db.query('SELECT * FROM companies ORDER BY created_at DESC');
+    
+    global.logger.info(`Firma listesi: ${result.rows.length} firma`);
+    res.json(result.rows);
+  } catch (error) {
+    global.logger.error('Firma listesi getirme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Get company by ID
