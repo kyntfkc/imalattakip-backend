@@ -126,16 +126,24 @@ async function startServer() {
   console.log('🗄️ Database URL:', process.env.DATABASE_URL ? 'Configured' : 'Not configured');
   
   try {
-    // Start server first
+    // Start server first - Railway needs 0.0.0.0 binding
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Backend sunucusu ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://0.0.0.0:${PORT}/api/health`);
+      console.log(`🌐 Test endpoint: http://0.0.0.0:${PORT}/`);
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
     });
     
-    // Initialize database in background
+    // Server error handling
+    server.on('error', (err) => {
+      console.error('❌ Server error:', err);
+      logger.error('Server error:', err);
+    });
+    
+    // Initialize database in background - don't block server start
     setTimeout(async () => {
       try {
+        console.log('🔄 Veritabanı başlatılıyor...');
         await initDatabase();
         console.log('✅ Veritabanı başarıyla başlatıldı');
         logger.info('Veritabanı başarıyla başlatıldı');
@@ -144,7 +152,7 @@ async function startServer() {
         logger.error('Veritabanı başlatma hatası:', dbError);
         // Don't exit, let server run without DB
       }
-    }, 1000);
+    }, 2000);
     
   } catch (error) {
     console.error('❌ Sunucu başlatılamadı:', error);
