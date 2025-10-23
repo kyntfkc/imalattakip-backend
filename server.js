@@ -22,7 +22,7 @@ const dashboardSettingsRoutes = require('./routes/dashboardSettings');
 const { initDatabase, getDatabase, closeDatabase } = require('./database/postgresql');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet());
@@ -37,7 +37,7 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: true, // Allow all origins in production
   credentials: true
 }));
 
@@ -85,12 +85,13 @@ app.use('/api/dashboard-settings', dashboardSettingsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
+  res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     version: '1.0.0',
-    database: process.env.DATABASE_URL ? 'Connected' : 'Not configured'
+    port: PORT,
+    database: process.env.DATABASE_URL ? 'Configured' : 'Not configured'
   });
 });
 
