@@ -46,7 +46,7 @@ async function createTables(client) {
       id SERIAL PRIMARY KEY,
       username VARCHAR(50) UNIQUE NOT NULL,
       password VARCHAR(255) NOT NULL,
-      role VARCHAR(20) DEFAULT 'user',
+      role VARCHAR(20) DEFAULT 'normal_user',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -122,7 +122,7 @@ async function createTables(client) {
     // System logs
     `CREATE TABLE IF NOT EXISTS system_logs (
       id SERIAL PRIMARY KEY,
-      user VARCHAR(100),
+      username VARCHAR(100),
       action VARCHAR(255) NOT NULL,
       entityType VARCHAR(100) DEFAULT '',
       entityName VARCHAR(255) DEFAULT '',
@@ -143,7 +143,7 @@ async function createTables(client) {
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_type ON external_vault_transactions(type)',
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_karat ON external_vault_transactions(karat)',
     'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)',
-    'CREATE INDEX IF NOT EXISTS idx_system_logs_user ON system_logs(user)'
+    'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)'
   ];
   
   for (const sql of indexes) {

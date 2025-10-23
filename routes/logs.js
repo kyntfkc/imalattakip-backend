@@ -14,7 +14,7 @@ router.get('/', authenticateToken, (req, res) => {
   let params = [];
   
   if (search) {
-    query += ' WHERE user LIKE ? OR action LIKE ? OR details LIKE ?';
+    query += ' WHERE username LIKE ? OR action LIKE ? OR details LIKE ?';
     params = [`%${search}%`, `%${search}%`, `%${search}%`];
   }
   
@@ -32,7 +32,7 @@ router.get('/', authenticateToken, (req, res) => {
     let countParams = [];
     
     if (search) {
-      countQuery += ' WHERE user LIKE ? OR action LIKE ? OR details LIKE ?';
+      countQuery += ' WHERE username LIKE ? OR action LIKE ? OR details LIKE ?';
       countParams = [`%${search}%`, `%${search}%`, `%${search}%`];
     }
     
@@ -80,7 +80,7 @@ router.get('/:id', authenticateToken, (req, res) => {
 
 // Add new log
 router.post('/', authenticateToken, (req, res) => {
-  const { user, action, entityType, entityName, details } = req.body;
+  const { username, action, entityType, entityName, details } = req.body;
   
   if (!action) {
     return res.status(400).json({ error: 'Aksiyon gerekli' });
@@ -89,8 +89,8 @@ router.post('/', authenticateToken, (req, res) => {
   const db = getDatabase();
   
   db.run(
-    'INSERT INTO system_logs (user, action, entityType, entityName, details) VALUES (?, ?, ?, ?, ?)',
-    [user || req.user.username, action, entityType || '', entityName || '', details || ''],
+    'INSERT INTO system_logs (username, action, entityType, entityName, details) VALUES (?, ?, ?, ?, ?)',
+    [username || req.username.usernamename, action, entityType || '', entityName || '', details || ''],
     function(err) {
       if (err) {
         global.logger.error('Log oluşturma hatası:', err);
@@ -116,8 +116,8 @@ router.post('/', authenticateToken, (req, res) => {
 
 // Clear all logs (admin only)
 router.delete('/clear', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.role !== 'admin') {
+  // Check if username is admin
+  if (req.username.role !== 'admin') {
     return res.status(403).json({ error: 'Bu işlem için admin yetkisi gerekli' });
   }
   
@@ -134,8 +134,8 @@ router.delete('/clear', authenticateToken, (req, res) => {
       
       // Log the action
       db.run(
-        'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-        [req.user.username, 'Loglar Temizlendi', `${this.changes} log silindi`]
+        'INSERT INTO system_logs (username, action, details) VALUES (?, ?, ?)',
+        [req.username.usernamename, 'Loglar Temizlendi', `${this.changes} log silindi`]
       );
       
       res.json({ 
@@ -148,8 +148,8 @@ router.delete('/clear', authenticateToken, (req, res) => {
 
 // Delete specific log (admin only)
 router.delete('/:id', authenticateToken, (req, res) => {
-  // Check if user is admin
-  if (req.user.role !== 'admin') {
+  // Check if username is admin
+  if (req.username.role !== 'admin') {
     return res.status(403).json({ error: 'Bu işlem için admin yetkisi gerekli' });
   }
   
@@ -181,7 +181,7 @@ router.get('/stats/summary', authenticateToken, (req, res) => {
   db.get(
     `SELECT 
       COUNT(*) as total,
-      COUNT(DISTINCT user) as uniqueUsers,
+      COUNT(DISTINCT username) as uniqueUsers,
       COUNT(CASE WHEN DATE(created_at) = DATE('now') THEN 1 END) as todayCount,
       COUNT(CASE WHEN DATE(created_at) >= DATE('now', '-7 days') THEN 1 END) as weekCount
      FROM system_logs`,
@@ -202,10 +202,10 @@ router.get('/recent/activity', authenticateToken, (req, res) => {
   const db = getDatabase();
   
   db.all(
-    `SELECT user, action, COUNT(*) as count, MAX(created_at) as lastActivity
+    `SELECT username, action, COUNT(*) as count, MAX(created_at) as lastActivity
      FROM system_logs 
      WHERE created_at >= DATETIME('now', '-24 hours')
-     GROUP BY user, action
+     GROUP BY username, action
      ORDER BY lastActivity DESC`,
     [],
     (err, activities) => {
