@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'imalattakip-secret-key-2024';
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, role = 'user' } = req.body;
+    const { username, password, role = 'normal_user' } = req.body;
     
     if (!username || !password) {
       return res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
@@ -18,41 +18,30 @@ router.post('/register', async (req, res) => {
     const db = getDatabase();
     
     // Check if user exists
-    db.get('SELECT id FROM users WHERE username = ?', [username], async (err, row) => {
-      if (err) {
-        global.logger.error('Kullanıcı kontrol hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      if (row) {
-        return res.status(400).json({ error: 'Kullanıcı zaten mevcut' });
-      }
-      
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Insert user
-      db.run(
-        'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-        [username, hashedPassword, role],
-        function(err) {
-          if (err) {
-            global.logger.error('Kullanıcı oluşturma hatası:', err);
-            return res.status(500).json({ error: 'Kullanıcı oluşturulamadı' });
-          }
-          
-          // Log the action
-          db.run(
-            'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-            [username, 'Kullanıcı Kaydı', 'Yeni kullanıcı oluşturuldu']
-          );
-          
-          res.status(201).json({ 
-            message: 'Kullanıcı başarıyla oluşturuldu',
-            userId: this.lastID 
-          });
-        }
-      );
+    const existingUser = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'Kullanıcı adı zaten mevcut' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insert user
+    const result = await db.query(
+      'INSERT INTO users (username, password, role) VALUES ($1, $2, $3) RETURNING *',
+      [username, hashedPassword, role]
+    );
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [username, 'Kullanıcı Kaydı', 'Yeni kullanıcı oluşturuldu']
+    );
+    
+    global.logger.info(`Yeni kullanıcı kaydedildi: ${username}`);
+    res.status(201).json({ 
+      message: 'Kullanıcı başarıyla oluşturuldu',
+      userId: result.rows[0].id 
     });
   } catch (error) {
     global.logger.error('Register hatası:', error);
@@ -151,7 +140,7 @@ router.get('/verify', (req, res) => {
 });
 
 // Get all users (admin only)
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
   if (!token) {
@@ -166,20 +155,14 @@ router.get('/users', (req, res) => {
     }
     
     const db = getDatabase();
-    
-    db.all(
-      'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC',
-      [],
-      (err, users) => {
-        if (err) {
-          global.logger.error('Kullanıcı listesi hatası:', err);
-          return res.status(500).json({ error: 'Sunucu hatası' });
-        }
-        
-        res.json(users);
-      }
+    const result = await db.query(
+      'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC'
     );
+    
+    global.logger.info(`Kullanıcı listesi getirildi: ${result.rows.length} kullanıcı`);
+    res.json(result.rows);
   } catch (error) {
+    global.logger.error('Kullanıcı listesi hatası:', error);
     res.status(401).json({ error: 'Geçersiz token' });
   }
 });
