@@ -1,0 +1,21 @@
+{
+  "name": "imalattakip-backend",
+  "env": "node",
+  "buildCommand": "npm install",
+  "startCommand": "npm start",
+  "plan": "free",
+  "region": "oregon",
+  "autoDeploy": true,
+  "branch": "main",
+  "rootDir": ".",
+  "environmentVariables": [
+    {
+      "key": "NODE_ENV",
+      "value": "production"
+    },
+    {
+      "key": "JWT_SECRET",
+      "value": "imalattakip-secret-key-2024-render"
+    }
+  ]
+}
