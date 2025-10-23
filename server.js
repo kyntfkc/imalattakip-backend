@@ -83,6 +83,15 @@ app.use('/api/companies', companiesRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/dashboard-settings', dashboardSettingsRoutes);
 
+// Simple test endpoint
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'İmalat Takip Backend API',
+    status: 'OK',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
@@ -111,27 +120,34 @@ app.use('*', (req, res) => {
 
 // Initialize database and start server
 async function startServer() {
+  console.log('🚀 Server başlatılıyor...');
+  console.log('📍 Port:', PORT);
+  console.log('🌍 Environment:', process.env.NODE_ENV);
+  console.log('🗄️ Database URL:', process.env.DATABASE_URL ? 'Configured' : 'Not configured');
+  
   try {
     // Start server first
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Backend sunucusu ${PORT} portunda çalışıyor`);
+      console.log(`📊 Health check: http://0.0.0.0:${PORT}/api/health`);
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
-      logger.info(`📊 Health check: http://localhost:${PORT}/api/health`);
-      console.log(`\n🎯 İmalat Takip Backend Başlatıldı!`);
-      console.log(`📍 Port: ${PORT}`);
-      console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`📁 Dropbox Konumu: ${__dirname}`);
-      console.log(`\n✨ Otomatik yedekleme aktif!`);
     });
     
     // Initialize database in background
-    try {
-      await initDatabase();
-      logger.info('Veritabanı başarıyla başlatıldı');
-    } catch (dbError) {
-      logger.error('Veritabanı başlatma hatası:', dbError);
-      // Don't exit, let server run without DB
-    }
+    setTimeout(async () => {
+      try {
+        await initDatabase();
+        console.log('✅ Veritabanı başarıyla başlatıldı');
+        logger.info('Veritabanı başarıyla başlatıldı');
+      } catch (dbError) {
+        console.log('⚠️ Veritabanı başlatma hatası:', dbError.message);
+        logger.error('Veritabanı başlatma hatası:', dbError);
+        // Don't exit, let server run without DB
+      }
+    }, 1000);
+    
   } catch (error) {
+    console.error('❌ Sunucu başlatılamadı:', error);
     logger.error('Sunucu başlatılamadı:', error);
     process.exit(1);
   }
