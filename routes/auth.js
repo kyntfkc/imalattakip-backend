@@ -71,54 +71,56 @@ router.post('/login', async (req, res) => {
     
     const db = getDatabase();
     
-    db.get(
-      'SELECT id, username, password, role FROM users WHERE username = ?',
-      [username],
-      async (err, user) => {
-        if (err) {
-          global.logger.error('Login hatası:', err);
-          return res.status(500).json({ error: 'Sunucu hatası' });
-        }
-        
-        if (!user) {
-          return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
-        }
-        
-        // Check password
-        const isValidPassword = await bcrypt.compare(password, user.password);
-        
-        if (!isValidPassword) {
-          return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
-        }
-        
-        // Generate JWT token
-        const token = jwt.sign(
-          { 
-            userId: user.id, 
-            username: user.username, 
-            role: user.role 
-          },
-          JWT_SECRET,
-          { expiresIn: '24h' }
-        );
-        
-        // Log the action
-        db.run(
-          'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-          [username, 'Giriş', 'Kullanıcı giriş yaptı']
-        );
-        
-        res.json({
-          message: 'Giriş başarılı',
-          token,
-          user: {
-            id: user.id,
-            username: user.username,
-            role: user.role
-          }
-        });
+    try {
+      const result = await db.query(
+        'SELECT id, username, password, role FROM users WHERE username = $1',
+        [username]
+      );
+      
+      if (result.rows.length === 0) {
+        return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
       }
-    );
+      
+      const user = result.rows[0];
+      
+      // Check password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      
+      if (!isValidPassword) {
+        return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
+      }
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role 
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      
+      // Log the action
+      await db.query(
+        'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+        [username, 'Giriş', 'Kullanıcı giriş yaptı']
+      );
+      
+      global.logger.info(`Kullanıcı giriş yaptı: ${username}`);
+      res.json({
+        message: 'Giriş başarılı',
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        }
+      });
+    } catch (dbError) {
+      global.logger.error('Database hatası:', dbError);
+      res.status(500).json({ error: 'Sunucu hatası' });
+    }
   } catch (error) {
     global.logger.error('Login hatası:', error);
     res.status(500).json({ error: 'Sunucu hatası' });
