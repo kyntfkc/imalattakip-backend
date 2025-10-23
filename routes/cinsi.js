@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../database/init');
+const { getDatabase } = require('../database/postgresql');
 
 // Cinsi ayarlarını getir
 router.get('/', async (req, res) => {
   try {
-    const cinsiOptions = await db.all('SELECT * FROM cinsi_settings ORDER BY id');
-    res.json(cinsiOptions);
+    const db = getDatabase();
+    const result = await db.query('SELECT * FROM cinsi_settings ORDER BY id');
+    res.json(result.rows);
   } catch (error) {
     global.logger.error('Cinsi ayarları getirme hatası:', error);
     res.status(500).json({ error: 'Cinsi ayarları getirilemedi' });
@@ -22,18 +23,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Value ve label gerekli' });
     }
 
-    const result = await db.run(
-      'INSERT INTO cinsi_settings (value, label) VALUES (?, ?)',
+    const db = getDatabase();
+    const result = await db.query(
+      'INSERT INTO cinsi_settings (value, label) VALUES ($1, $2) RETURNING *',
       [value.toLowerCase().replace(/\s+/g, '-'), label.trim()]
     );
 
-    const newCinsi = await db.get(
-      'SELECT * FROM cinsi_settings WHERE id = ?',
-      [result.lastID]
-    );
-
     global.logger.info(`Yeni cinsi eklendi: ${label} (${value})`);
-    res.status(201).json(newCinsi);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     global.logger.error('Cinsi ekleme hatası:', error);
     res.status(500).json({ error: 'Cinsi eklenemedi' });

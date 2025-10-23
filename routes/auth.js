@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { getDatabase } = require('../database/init');
+const { getDatabase } = require('../database/postgresql');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'imalattakip-secret-key-2024';
