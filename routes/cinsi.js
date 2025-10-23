@@ -30,7 +30,10 @@ router.post('/', async (req, res) => {
     );
 
     global.logger.info(`Yeni cinsi eklendi: ${label} (${value})`);
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      message: 'Cinsi başarıyla eklendi',
+      cinsi: result.rows[0]
+    });
   } catch (error) {
     global.logger.error('Cinsi ekleme hatası:', error);
     res.status(500).json({ error: 'Cinsi eklenemedi' });
@@ -58,7 +61,10 @@ router.put('/:id', async (req, res) => {
     }
 
     global.logger.info(`Cinsi güncellendi: ${label} (${value})`);
-    res.json(result.rows[0]);
+    res.json({
+      message: 'Cinsi başarıyla güncellendi',
+      cinsi: result.rows[0]
+    });
   } catch (error) {
     global.logger.error('Cinsi güncelleme hatası:', error);
     res.status(500).json({ error: 'Cinsi güncellenemedi' });
