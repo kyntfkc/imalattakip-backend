@@ -1,27 +1,8 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const { getDatabase } = require('../database/postgresql');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'imalattakip-secret-key-2024';
-
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Token gerekli' });
-  }
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Geçersiz token' });
-  }
-};
 
 // Get unit statistics
 router.get('/stats', authenticateToken, (req, res) => {
