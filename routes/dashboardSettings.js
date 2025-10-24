@@ -13,13 +13,9 @@ router.get('/', authenticateToken, async (req, res) => {
     );
     
     if (result.rows.length > 0) {
-      try {
-        const settings = JSON.parse(result.rows[0].settings);
-        res.json({ settings });
-      } catch (parseError) {
-        console.error('Settings parse hatası:', parseError);
-        res.status(500).json({ error: 'Ayarlar parse edilemedi' });
-      }
+      // PostgreSQL JSONB otomatik olarak parse edilir
+      const settings = result.rows[0].settings;
+      res.json({ settings });
     } else {
       // Varsayılan ayarları döndür
       const defaultSettings = {
@@ -47,8 +43,7 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Ayarlar gerekli' });
     }
     
-    const settingsJson = JSON.stringify(settings);
-    
+    // PostgreSQL JSONB için direkt obje gönder
     // Önce mevcut kaydı kontrol et
     const checkResult = await db.query(
       'SELECT id FROM dashboard_settings WHERE user_id = $1',
@@ -59,13 +54,13 @@ router.post('/', authenticateToken, async (req, res) => {
       // Güncelle
       await db.query(
         'UPDATE dashboard_settings SET settings = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
-        [settingsJson, req.user.id]
+        [settings, req.user.id]
       );
     } else {
       // Yeni kayıt oluştur
       await db.query(
         'INSERT INTO dashboard_settings (user_id, settings) VALUES ($1, $2)',
-        [req.user.id, settingsJson]
+        [req.user.id, settings]
       );
     }
     
@@ -92,8 +87,7 @@ router.post('/reset', authenticateToken, async (req, res) => {
       showLastUpdate: true
     };
     
-    const settingsJson = JSON.stringify(defaultSettings);
-    
+    // PostgreSQL JSONB için direkt obje gönder
     // Önce mevcut kaydı kontrol et
     const checkResult = await db.query(
       'SELECT id FROM dashboard_settings WHERE user_id = $1',
@@ -104,13 +98,13 @@ router.post('/reset', authenticateToken, async (req, res) => {
       // Güncelle
       await db.query(
         'UPDATE dashboard_settings SET settings = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
-        [settingsJson, req.user.id]
+        [defaultSettings, req.user.id]
       );
     } else {
       // Yeni kayıt oluştur
       await db.query(
         'INSERT INTO dashboard_settings (user_id, settings) VALUES ($1, $2)',
-        [req.user.id, settingsJson]
+        [req.user.id, defaultSettings]
       );
     }
     
