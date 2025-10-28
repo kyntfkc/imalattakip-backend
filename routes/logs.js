@@ -87,7 +87,7 @@ router.post('/', authenticateToken, (req, res) => {
   
   db.run(
     'INSERT INTO system_logs (username, action, entityType, entityName, details) VALUES (?, ?, ?, ?, ?)',
-    [username || req.username.usernamename, action, entityType || '', entityName || '', details || ''],
+    [username || req.user?.username || 'system', action, entityType || '', entityName || '', details || ''],
     function(err) {
       if (err) {
         global.logger.error('Log oluşturma hatası:', err);
