@@ -19,31 +19,27 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get company by ID
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const db = getDatabase();
   
-  db.get(
-    'SELECT * FROM companies WHERE id = ?',
-    [id],
-    (err, company) => {
-      if (err) {
-        global.logger.error('Firma getirme hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      if (!company) {
-        return res.status(404).json({ error: 'Firma bulunamadı' });
-      }
-      
-      res.json(company);
+  try {
+    const result = await db.query('SELECT * FROM companies WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Firma bulunamadı' });
     }
-  );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    global.logger.error('Firma getirme hatası:', err);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Create new company
-router.post('/', authenticateToken, (req, res) => {
-  const { name, type, contact, address, notes } = req.body;
+router.post('/', authenticateToken, async (req, res) => {
+  const { name, type, contact, notes } = req.body;
   
   if (!name || !type) {
     return res.status(400).json({ error: 'Firma adı ve tipi gerekli' });
@@ -55,42 +51,32 @@ router.post('/', authenticateToken, (req, res) => {
   
   const db = getDatabase();
   
-  db.run(
-    'INSERT INTO companies (name, type, contact, address, notes) VALUES (?, ?, ?, ?, ?)',
-    [name.trim(), type, contact?.trim() || '', address?.trim() || '', notes?.trim() || ''],
-    function(err) {
-      if (err) {
-        global.logger.error('Firma oluşturma hatası:', err);
-        return res.status(500).json({ error: 'Firma oluşturulamadı' });
-      }
-      
-      // Get the created company
-      db.get(
-        'SELECT * FROM companies WHERE id = ?',
-        [this.lastID],
-        (err, company) => {
-          if (err) {
-            global.logger.error('Firma getirme hatası:', err);
-            return res.status(500).json({ error: 'Sunucu hatası' });
-          }
-          
-          // Log the action
-          db.run(
-            'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-            [req.user.username, 'Firma Oluşturuldu', `Firma: ${name} (${type})`]
-          );
-          
-          res.status(201).json(company);
-        }
-      );
-    }
-  );
+  try {
+    const result = await db.query(
+      'INSERT INTO companies (name, type, contact, address, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name.trim(), type, contact?.trim() || '', '', notes?.trim() || '']
+    );
+    
+    const company = result.rows[0];
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [req.user.username, 'Firma Oluşturuldu', `Firma: ${name} (${type})`]
+    );
+    
+    global.logger.info(`Yeni firma eklendi: ${name} (${type})`);
+    res.status(201).json(company);
+  } catch (err) {
+    global.logger.error('Firma oluşturma hatası:', err);
+    res.status(500).json({ error: 'Firma oluşturulamadı' });
+  }
 });
 
 // Update company
-router.put('/:id', authenticateToken, (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { name, type, contact, address, notes } = req.body;
+  const { name, type, contact, notes } = req.body;
   
   if (!name || !type) {
     return res.status(400).json({ error: 'Firma adı ve tipi gerekli' });
@@ -102,104 +88,81 @@ router.put('/:id', authenticateToken, (req, res) => {
   
   const db = getDatabase();
   
-  db.run(
-    'UPDATE companies SET name = ?, type = ?, contact = ?, address = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    [name.trim(), type, contact?.trim() || '', address?.trim() || '', notes?.trim() || '', id],
-    function(err) {
-      if (err) {
-        global.logger.error('Firma güncelleme hatası:', err);
-        return res.status(500).json({ error: 'Firma güncellenemedi' });
-      }
-      
-      if (this.changes === 0) {
-        return res.status(404).json({ error: 'Firma bulunamadı' });
-      }
-      
-      // Get the updated company
-      db.get(
-        'SELECT * FROM companies WHERE id = ?',
-        [id],
-        (err, company) => {
-          if (err) {
-            global.logger.error('Firma getirme hatası:', err);
-            return res.status(500).json({ error: 'Sunucu hatası' });
-          }
-          
-          // Log the action
-          db.run(
-            'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-            [req.user.username, 'Firma Güncellendi', `Firma: ${name} (${type})`]
-          );
-          
-          res.json(company);
-        }
-      );
+  try {
+    const result = await db.query(
+      'UPDATE companies SET name = $1, type = $2, contact = $3, address = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+      [name.trim(), type, contact?.trim() || '', '', notes?.trim() || '', id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Firma bulunamadı' });
     }
-  );
+    
+    const company = result.rows[0];
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [req.user.username, 'Firma Güncellendi', `Firma: ${name} (${type})`]
+    );
+    
+    res.json(company);
+  } catch (err) {
+    global.logger.error('Firma güncelleme hatası:', err);
+    res.status(500).json({ error: 'Firma güncellenemedi' });
+  }
 });
 
 // Delete company
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const db = getDatabase();
   
-  // First get the company to log the action
-  db.get(
-    'SELECT * FROM companies WHERE id = ?',
-    [id],
-    (err, company) => {
-      if (err) {
-        global.logger.error('Firma getirme hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      if (!company) {
-        return res.status(404).json({ error: 'Firma bulunamadı' });
-      }
-      
-      // Delete the company
-      db.run(
-        'DELETE FROM companies WHERE id = ?',
-        [id],
-        function(err) {
-          if (err) {
-            global.logger.error('Firma silme hatası:', err);
-            return res.status(500).json({ error: 'Firma silinemedi' });
-          }
-          
-          // Log the action
-          db.run(
-            'INSERT INTO system_logs (user, action, details) VALUES (?, ?, ?)',
-            [req.user.username, 'Firma Silindi', `Firma: ${company.name} (${company.type})`]
-          );
-          
-          res.json({ message: 'Firma başarıyla silindi' });
-        }
-      );
+  try {
+    // First get the company to log the action
+    const getResult = await db.query('SELECT * FROM companies WHERE id = $1', [id]);
+    
+    if (getResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Firma bulunamadı' });
     }
-  );
+    
+    const company = getResult.rows[0];
+    
+    // Delete the company
+    await db.query('DELETE FROM companies WHERE id = $1', [id]);
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, details) VALUES ($1, $2, $3)',
+      [req.user.username, 'Firma Silindi', `Firma: ${company.name} (${company.type})`]
+    );
+    
+    global.logger.info(`Transfer silindi: ID ${id}`);
+    res.json({ message: 'Firma başarıyla silindi' });
+  } catch (err) {
+    global.logger.error('Firma silme hatası:', err);
+    res.status(500).json({ error: 'Firma silinemedi' });
+  }
 });
 
 // Get company statistics
-router.get('/stats/summary', authenticateToken, (req, res) => {
+router.get('/stats/summary', authenticateToken, async (req, res) => {
   const db = getDatabase();
   
-  db.get(
-    `SELECT 
-      COUNT(*) as total,
-      SUM(CASE WHEN type = 'company' THEN 1 ELSE 0 END) as companies,
-      SUM(CASE WHEN type = 'person' THEN 1 ELSE 0 END) as persons
-     FROM companies`,
-    [],
-    (err, stats) => {
-      if (err) {
-        global.logger.error('Firma istatistikleri hatası:', err);
-        return res.status(500).json({ error: 'Sunucu hatası' });
-      }
-      
-      res.json(stats);
-    }
-  );
+  try {
+    const result = await db.query(
+      `SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN type = 'company' THEN 1 ELSE 0 END) as companies,
+        SUM(CASE WHEN type = 'person' THEN 1 ELSE 0 END) as persons
+       FROM companies`
+    );
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    global.logger.error('Firma istatistikleri hatası:', err);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 module.exports = router;
