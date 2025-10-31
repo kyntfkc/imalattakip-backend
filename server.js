@@ -37,12 +37,12 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS configuration - Socket.io için genişletilmiş
+// CORS configuration - Socket.io için
 app.use(cors({
-  origin: true, // Allow all origins in production
+  origin: "*", // Tüm origin'lere izin ver (Railway için)
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
 }));
 
 // Body parsing middleware

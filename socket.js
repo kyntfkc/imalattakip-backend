@@ -8,10 +8,8 @@ function initializeSocket(server) {
   
   io = new Server(server, {
     cors: {
-      origin: "*", // Tüm origin'lere izin ver (Railway için)
-      credentials: true,
-      methods: ["GET", "POST"],
-      allowedHeaders: ["Content-Type", "Authorization"]
+      origin: "*", // Frontend domainini de yazabilirsin
+      methods: ["GET", "POST"]
     },
     transports: ['websocket'], // Sadece websocket - polling Railway'da sorun çıkarıyor
     allowEIO3: true,
@@ -52,14 +50,11 @@ function initializeSocket(server) {
   });
 
   io.on('connection', (socket) => {
-    console.log('✅ Yeni kullanıcı bağlandı:', socket.id, socket.user?.username);
+    console.log('✅ Yeni socket bağlantısı:', socket.id, socket.user?.username);
     global.logger.info(`Socket bağlantısı: ${socket.id} - ${socket.user?.username}`);
-    
-    // Railway test için bağlantı mesajı
-    socket.emit('hello', 'Railway Socket.io çalışıyor!');
 
     socket.on('disconnect', () => {
-      console.log('❌ Kullanıcı bağlantısı kesildi:', socket.id);
+      console.log('❌ Socket bağlantısı kesildi:', socket.id);
       global.logger.info(`Socket bağlantısı kesildi: ${socket.id}`);
     });
 
