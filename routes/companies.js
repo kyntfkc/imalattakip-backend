@@ -39,7 +39,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Create new company
 router.post('/', authenticateToken, async (req, res) => {
-  const { name, type, contact, address, notes } = req.body;
+  const { name, type, contact, notes } = req.body;
   
   if (!name || !type) {
     return res.status(400).json({ error: 'Firma adı ve tipi gerekli' });
@@ -54,7 +54,7 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
       'INSERT INTO companies (name, type, contact, address, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [name.trim(), type, contact?.trim() || '', address?.trim() || '', notes?.trim() || '']
+      [name.trim(), type, contact?.trim() || '', '', notes?.trim() || '']
     );
     
     const company = result.rows[0];
@@ -76,7 +76,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update company
 router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { name, type, contact, address, notes } = req.body;
+  const { name, type, contact, notes } = req.body;
   
   if (!name || !type) {
     return res.status(400).json({ error: 'Firma adı ve tipi gerekli' });
@@ -91,7 +91,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.query(
       'UPDATE companies SET name = $1, type = $2, contact = $3, address = $4, notes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-      [name.trim(), type, contact?.trim() || '', address?.trim() || '', notes?.trim() || '', id]
+      [name.trim(), type, contact?.trim() || '', '', notes?.trim() || '', id]
     );
     
     if (result.rows.length === 0) {
