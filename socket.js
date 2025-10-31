@@ -4,18 +4,51 @@ const { Server } = require('socket.io');
 let io = null;
 
 function initializeSocket(server) {
+  const jwt = require('jsonwebtoken');
+  
   io = new Server(server, {
     cors: {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST']
     },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
+  });
+
+  // Authentication middleware for Socket.io - Geçici olarak devre dışı (Railway test için)
+  // Production'da tekrar açılabilir
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token || 
+                   socket.handshake.headers?.authorization?.split(' ')[1] ||
+                   socket.handshake.query?.token;
+      
+      // Geçici olarak token zorunluluğunu kaldır (test için)
+      if (!token) {
+        console.warn('Socket bağlantısı token olmadan bağlanıyor (development mode)');
+        socket.user = { id: 0, username: 'guest', role: 'user' };
+        return next();
+      }
+
+      const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-jwt-key-2024-imalattakip';
+      const decoded = jwt.verify(token, JWT_SECRET);
+      
+      socket.user = decoded;
+      next();
+    } catch (error) {
+      console.warn('Socket auth hatası (devam ediliyor):', error.message);
+      // Geçici olarak auth hatası durumunda da devam et (test için)
+      socket.user = { id: 0, username: 'guest', role: 'user' };
+      next();
+    }
   });
 
   io.on('connection', (socket) => {
-    console.log('✅ Yeni kullanıcı bağlandı:', socket.id);
-    global.logger.info(`Socket bağlantısı: ${socket.id}`);
+    console.log('✅ Yeni kullanıcı bağlandı:', socket.id, socket.user?.username);
+    global.logger.info(`Socket bağlantısı: ${socket.id} - ${socket.user?.username}`);
 
     socket.on('disconnect', () => {
       console.log('❌ Kullanıcı bağlantısı kesildi:', socket.id);
