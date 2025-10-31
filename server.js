@@ -117,8 +117,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler - Socket.io path'ini hariç tut (Socket.io HTTP server'a attach edildiği için gerekli değil ama yine de güvenli)
+app.use('*', (req, res, next) => {
+  // Socket.io path'ini atla - Socket.io HTTP server'a attach edildiği için bu middleware'e gelmemeli
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
   res.status(404).json({ error: 'Endpoint bulunamadı' });
 });
 
@@ -141,7 +145,7 @@ async function startServer() {
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
     });
 
-    // Initialize Socket.io
+    // Initialize Socket.io - HTTP server'a attach ediliyor, Express middleware'lerinden geçmez
     initializeSocket(server);
     
     // Server error handling
