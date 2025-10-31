@@ -8,12 +8,10 @@ function initializeSocket(server) {
   
   io = new Server(server, {
     cors: {
-      origin: true,
-      credentials: true,
-      methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization']
+      origin: "*", // Tüm origin'lere izin ver
+      methods: ['GET', 'POST']
     },
-    transports: ['polling'], // Railway için sadece polling
+    transports: ['websocket', 'polling'], // Önce websocket, sonra polling fallback
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000,
