@@ -44,24 +44,84 @@ async function initDatabase() {
 
 async function migrateDatabase(client) {
   try {
-    // Check if company_id column exists in external_vault_transactions
-    const checkColumnResult = await client.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'external_vault_transactions' 
-      AND column_name = 'company_id'
-    `);
+    console.log('🔄 Migration başlatılıyor...');
     
-    if (checkColumnResult.rows.length === 0) {
-      console.log('🔄 company_id kolonu ekleniyor...');
-      await client.query(`
-        ALTER TABLE external_vault_transactions 
-        ADD COLUMN company_id INTEGER REFERENCES companies(id)
+    // Check if company_id column exists in external_vault_transactions
+    try {
+      const checkCompanyIdResult = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'external_vault_transactions' 
+        AND column_name = 'company_id'
       `);
-      console.log('✅ company_id kolonu eklendi');
+      
+      if (checkCompanyIdResult.rows.length === 0) {
+        console.log('🔄 company_id kolonu ekleniyor...');
+        await client.query(`
+          ALTER TABLE external_vault_transactions 
+          ADD COLUMN company_id INTEGER REFERENCES companies(id)
+        `);
+        console.log('✅ company_id kolonu eklendi');
+      } else {
+        console.log('ℹ️ company_id kolonu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ company_id migration hatası:', error.message);
+      // Devam et
     }
+    
+    // Check if entity_type column exists in system_logs
+    try {
+      const checkEntityTypeResult = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'system_logs' 
+        AND column_name = 'entity_type'
+      `);
+      
+      if (checkEntityTypeResult.rows.length === 0) {
+        console.log('🔄 entity_type kolonu ekleniyor...');
+        await client.query(`
+          ALTER TABLE system_logs 
+          ADD COLUMN entity_type VARCHAR(100) DEFAULT ''
+        `);
+        console.log('✅ entity_type kolonu eklendi');
+      } else {
+        console.log('ℹ️ entity_type kolonu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ entity_type migration hatası:', error.message);
+      // Devam et
+    }
+    
+    // Check if entity_name column exists in system_logs
+    try {
+      const checkEntityNameResult = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'system_logs' 
+        AND column_name = 'entity_name'
+      `);
+      
+      if (checkEntityNameResult.rows.length === 0) {
+        console.log('🔄 entity_name kolonu ekleniyor...');
+        await client.query(`
+          ALTER TABLE system_logs 
+          ADD COLUMN entity_name VARCHAR(255) DEFAULT ''
+        `);
+        console.log('✅ entity_name kolonu eklendi');
+      } else {
+        console.log('ℹ️ entity_name kolonu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ entity_name migration hatası:', error.message);
+      // Devam et
+    }
+    
+    console.log('✅ Migration tamamlandı');
   } catch (error) {
-    console.warn('⚠️ Migration hatası (normal olabilir):', error.message);
+    console.error('❌ Migration genel hatası:', error.message);
+    console.error('❌ Migration stack:', error.stack);
     // Migration hataları kritik değil, devam et
   }
 }
@@ -152,8 +212,8 @@ async function createTables(client) {
       id SERIAL PRIMARY KEY,
       username VARCHAR(100),
       action VARCHAR(255) NOT NULL,
-      entityType VARCHAR(100) DEFAULT '',
-      entityName VARCHAR(255) DEFAULT '',
+      entity_type VARCHAR(100) DEFAULT '',
+      entity_name VARCHAR(255) DEFAULT '',
       details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`
