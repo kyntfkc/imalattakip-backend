@@ -30,12 +30,39 @@ async function initDatabase() {
       // Create tables
       await createTables(client);
       console.log('✅ PostgreSQL veritabanı tabloları oluşturuldu');
+      
+      // Add company_id column if it doesn't exist (migration)
+      await migrateDatabase(client);
     } finally {
       client.release();
     }
   } catch (error) {
     console.error('❌ Veritabanı başlatma hatası:', error);
     throw error;
+  }
+}
+
+async function migrateDatabase(client) {
+  try {
+    // Check if company_id column exists in external_vault_transactions
+    const checkColumnResult = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'external_vault_transactions' 
+      AND column_name = 'company_id'
+    `);
+    
+    if (checkColumnResult.rows.length === 0) {
+      console.log('🔄 company_id kolonu ekleniyor...');
+      await client.query(`
+        ALTER TABLE external_vault_transactions 
+        ADD COLUMN company_id INTEGER REFERENCES companies(id)
+      `);
+      console.log('✅ company_id kolonu eklendi');
+    }
+  } catch (error) {
+    console.warn('⚠️ Migration hatası (normal olabilir):', error.message);
+    // Migration hataları kritik değil, devam et
   }
 }
 
@@ -72,6 +99,7 @@ async function createTables(client) {
       karat INTEGER NOT NULL,
       notes TEXT,
       user_id INTEGER REFERENCES users(id),
+      company_id INTEGER REFERENCES companies(id),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     

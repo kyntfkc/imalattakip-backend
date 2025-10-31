@@ -8,20 +8,40 @@ const router = express.Router();
 router.get('/transactions', authenticateToken, async (req, res) => {
   try {
     const db = getDatabase();
-    const result = await db.query(
-      `SELECT t.*, c.name as company_name, c.id as company_id,
-       u.username as user_name 
-       FROM external_vault_transactions t 
-       LEFT JOIN users u ON t.user_id = u.id
-       LEFT JOIN companies c ON t.company_id = c.id
-       ORDER BY t.created_at DESC`
-    );
+    // company_id kolonu yoksa JOIN yapmayı dene, hata verirse company_id olmadan devam et
+    let result;
+    try {
+      // Önce company_id ile deneme yap
+      result = await db.query(
+        `SELECT t.*, c.name as company_name, c.id as company_id,
+         u.username as user_name 
+         FROM external_vault_transactions t 
+         LEFT JOIN users u ON t.user_id = u.id
+         LEFT JOIN companies c ON t.company_id = c.id
+         ORDER BY t.created_at DESC`
+      );
+    } catch (joinError) {
+      // company_id kolonu yoksa basit query ile devam et
+      global.logger.warn('company_id JOIN hatası, basit query kullanılıyor:', joinError.message);
+      result = await db.query(
+        `SELECT t.*, u.username as user_name 
+         FROM external_vault_transactions t 
+         LEFT JOIN users u ON t.user_id = u.id
+         ORDER BY t.created_at DESC`
+      );
+      // company_name ve company_id kolonlarını null olarak ekle
+      result.rows = result.rows.map(row => ({
+        ...row,
+        company_name: null,
+        company_id: null
+      }));
+    }
     
     global.logger.info(`Dış kasa işlem listesi: ${result.rows.length} işlem`);
     res.json(result.rows);
   } catch (error) {
     global.logger.error('Dış kasa işlem hatası:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
+    res.status(500).json({ error: 'Sunucu hatası', details: error.message });
   }
 });
 
@@ -58,13 +78,30 @@ router.post('/transactions', authenticateToken, async (req, res) => {
     
     const db = getDatabase();
     
-    // Insert transaction
-    const transactionResult = await db.query(
-      `INSERT INTO external_vault_transactions (type, amount, karat, notes, user_id, company_id) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING *`,
-      [type, amount, karat, notes || '', req.user.id, company_id || null]
-    );
+    // Insert transaction - company_id kolonu varsa ekle, yoksa ekleme
+    let transactionResult;
+    try {
+      // Önce company_id ile deneme yap
+      transactionResult = await db.query(
+        `INSERT INTO external_vault_transactions (type, amount, karat, notes, user_id, company_id) 
+         VALUES ($1, $2, $3, $4, $5, $6) 
+         RETURNING *`,
+        [type, amount, karat, notes || '', req.user.id, company_id || null]
+      );
+    } catch (insertError) {
+      // company_id kolonu yoksa company_id olmadan ekle
+      if (insertError.message && insertError.message.includes('company_id')) {
+        global.logger.warn('company_id kolonu yok, company_id olmadan ekleniyor:', insertError.message);
+        transactionResult = await db.query(
+          `INSERT INTO external_vault_transactions (type, amount, karat, notes, user_id) 
+           VALUES ($1, $2, $3, $4, $5) 
+           RETURNING *`,
+          [type, amount, karat, notes || '', req.user.id]
+        );
+      } else {
+        throw insertError;
+      }
+    }
     
     const transactionId = transactionResult.rows[0].id;
     
