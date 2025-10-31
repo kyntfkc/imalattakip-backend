@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -137,16 +138,22 @@ async function startServer() {
   console.log('🗄️ Database URL:', process.env.DATABASE_URL ? 'Configured' : 'Not configured');
   
   try {
-    // Start server first - Railway needs 0.0.0.0 binding
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    // Create HTTP server explicitly for Socket.io compatibility
+    const httpServer = http.createServer(app);
+    
+    // Initialize Socket.io BEFORE starting the server
+    initializeSocket(httpServer);
+    
+    // Start server - Railway needs 0.0.0.0 binding
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Backend sunucusu ${PORT} portunda çalışıyor`);
       console.log(`📊 Health check: http://0.0.0.0:${PORT}/api/health`);
       console.log(`🌐 Test endpoint: http://0.0.0.0:${PORT}/`);
+      console.log(`🔌 Socket.io: http://0.0.0.0:${PORT}/socket.io/`);
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
     });
-
-    // Initialize Socket.io - HTTP server'a attach ediliyor, Express middleware'lerinden geçmez
-    initializeSocket(server);
+    
+    const server = httpServer;
     
     // Server error handling
     server.on('error', (err) => {
