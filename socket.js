@@ -10,12 +10,14 @@ function initializeSocket(server) {
     cors: {
       origin: true,
       credentials: true,
-      methods: ['GET', 'POST']
+      methods: ['GET', 'POST', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
     },
-    transports: ['websocket', 'polling'],
+    transports: ['polling'], // Railway için sadece polling
     allowEIO3: true,
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    path: '/socket.io/'
   });
 
   // Authentication middleware for Socket.io - Geçici olarak devre dışı (Railway test için)
