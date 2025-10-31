@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDatabase } = require('../database/postgresql');
 const { authenticateToken } = require('../middleware/auth');
+const { emitCompanyCreated, emitCompanyUpdated, emitCompanyDeleted } = require('../socket');
 
 const router = express.Router();
 
@@ -66,6 +67,10 @@ router.post('/', authenticateToken, async (req, res) => {
     );
     
     global.logger.info(`Yeni firma eklendi: ${name} (${type})`);
+    
+    // Emit real-time event
+    emitCompanyCreated(company);
+    
     res.status(201).json(company);
   } catch (err) {
     global.logger.error('Firma oluşturma hatası:', err);
@@ -106,6 +111,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
       [req.user.username, 'Firma Güncellendi', `Firma: ${name} (${type})`]
     );
     
+    // Emit real-time event
+    emitCompanyUpdated(company);
+    
     res.json(company);
   } catch (err) {
     global.logger.error('Firma güncelleme hatası:', err);
@@ -137,7 +145,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       [req.user.username, 'Firma Silindi', `Firma: ${company.name} (${company.type})`]
     );
     
-    global.logger.info(`Transfer silindi: ID ${id}`);
+    global.logger.info(`Firma silindi: ID ${id}`);
+    
+    // Emit real-time event
+    emitCompanyDeleted(id);
+    
     res.json({ message: 'Firma başarıyla silindi' });
   } catch (err) {
     global.logger.error('Firma silme hatası:', err);

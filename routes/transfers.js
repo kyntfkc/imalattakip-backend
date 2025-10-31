@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDatabase } = require('../database/postgresql');
 const { authenticateToken } = require('../middleware/auth');
+const { emitTransferCreated, emitTransferUpdated, emitTransferDeleted } = require('../socket');
 
 const router = express.Router();
 
@@ -76,6 +77,14 @@ router.post('/', authenticateToken, async (req, res) => {
     );
     
     global.logger.info(`Transfer oluşturuldu: ${fromUnit} → ${toUnit}: ${amount}g (${karat}k)`);
+    
+    // Emit real-time event
+    const transferData = {
+      ...result.rows[0],
+      user_name: req.user.username
+    };
+    emitTransferCreated(transferData);
+    
     res.status(201).json({ 
       message: 'Transfer başarıyla oluşturuldu',
       transferId: result.rows[0].id 
@@ -117,6 +126,20 @@ router.put('/:id', authenticateToken, async (req, res) => {
     );
     
     global.logger.info(`Transfer güncellendi: ID ${id}`);
+    
+    // Get updated transfer data
+    const updatedResult = await db.query(
+      `SELECT t.*, u.username as user_name 
+       FROM transfers t 
+       LEFT JOIN users u ON t.user_id = u.id 
+       WHERE t.id = $1`,
+      [id]
+    );
+    
+    if (updatedResult.rows.length > 0) {
+      emitTransferUpdated(updatedResult.rows[0]);
+    }
+    
     res.json({ message: 'Transfer başarıyla güncellendi' });
   } catch (error) {
     global.logger.error('Transfer güncelleme hatası:', error);
@@ -154,6 +177,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     );
     
     global.logger.info(`Transfer silindi: ID ${id}`);
+    
+    // Emit real-time event
+    emitTransferDeleted(id);
+    
     res.json({ message: 'Transfer başarıyla silindi' });
   } catch (error) {
     global.logger.error('Transfer silme hatası:', error);

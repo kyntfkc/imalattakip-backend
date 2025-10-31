@@ -120,6 +120,9 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Endpoint bulunamadı' });
 });
 
+// Import Socket.io
+const { initializeSocket } = require('./socket');
+
 // Initialize database and start server
 async function startServer() {
   console.log('🚀 Server başlatılıyor...');
@@ -135,6 +138,9 @@ async function startServer() {
       console.log(`🌐 Test endpoint: http://0.0.0.0:${PORT}/`);
       logger.info(`🚀 Backend sunucusu ${PORT} portunda çalışıyor`);
     });
+
+    // Initialize Socket.io
+    initializeSocket(server);
     
     // Server error handling
     server.on('error', (err) => {
