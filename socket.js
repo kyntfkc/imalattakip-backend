@@ -8,15 +8,20 @@ function initializeSocket(server) {
   
   io = new Server(server, {
     cors: {
-      origin: "*", // Tüm origin'lere izin ver
-      methods: ['GET', 'POST']
+      origin: "*", // Tüm origin'lere izin ver (Railway için)
+      credentials: true,
+      methods: ["GET", "POST"],
+      allowedHeaders: ["Content-Type", "Authorization"]
     },
-    transports: ['websocket', 'polling'], // Önce websocket, sonra polling fallback
+    transports: ['websocket', 'polling'], // WebSocket ve polling
     allowEIO3: true,
     pingTimeout: 60000,
-    pingInterval: 25000,
-    path: '/socket.io/'
+    pingInterval: 25000
+    // path varsayılan olarak '/socket.io/' - belirtmeyebiliriz
   });
+  
+  console.log('🔌 Socket.io sunucusu başlatıldı');
+  global.logger.info('Socket.io sunucusu başlatıldı');
 
   // Authentication middleware for Socket.io - Geçici olarak devre dışı (Railway test için)
   // Production'da tekrar açılabilir
@@ -49,6 +54,9 @@ function initializeSocket(server) {
   io.on('connection', (socket) => {
     console.log('✅ Yeni kullanıcı bağlandı:', socket.id, socket.user?.username);
     global.logger.info(`Socket bağlantısı: ${socket.id} - ${socket.user?.username}`);
+    
+    // Railway test için bağlantı mesajı
+    socket.emit('hello', 'Railway Socket.io çalışıyor!');
 
     socket.on('disconnect', () => {
       console.log('❌ Kullanıcı bağlantısı kesildi:', socket.id);
