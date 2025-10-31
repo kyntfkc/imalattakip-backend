@@ -13,7 +13,7 @@ function initializeSocket(server) {
       methods: ["GET", "POST"],
       allowedHeaders: ["Content-Type", "Authorization"]
     },
-    transports: ['websocket', 'polling'], // WebSocket ve polling
+    transports: ['websocket'], // Sadece websocket - polling Railway'da sorun çıkarıyor
     allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000
