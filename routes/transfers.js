@@ -53,7 +53,7 @@ router.get('/date-range', authenticateToken, async (req, res) => {
 
 // Create new transfer
 router.post('/', authenticateToken, async (req, res) => {
-  const { fromUnit, toUnit, amount, karat, notes } = req.body;
+  const { fromUnit, toUnit, amount, karat, notes, cinsi } = req.body;
   
   if (!fromUnit || !toUnit || !amount || !karat) {
     return res.status(400).json({ error: 'Tüm alanlar gerekli' });
@@ -66,8 +66,8 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const db = getDatabase();
     const result = await db.query(
-      'INSERT INTO transfers (from_unit, to_unit, amount, karat, notes, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [fromUnit, toUnit, amount, karat, notes || '', req.user.id]
+      'INSERT INTO transfers (from_unit, to_unit, amount, karat, notes, cinsi, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [fromUnit, toUnit, amount, karat, notes || '', cinsi || null, req.user.id]
     );
     
     // Log the action
@@ -98,7 +98,7 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update transfer
 router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { fromUnit, toUnit, amount, karat, notes } = req.body;
+  const { fromUnit, toUnit, amount, karat, notes, cinsi } = req.body;
   
   if (!fromUnit || !toUnit || !amount || !karat) {
     return res.status(400).json({ error: 'Tüm alanlar gerekli' });
@@ -111,8 +111,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const db = getDatabase();
     const result = await db.query(
-      'UPDATE transfers SET from_unit = $1, to_unit = $2, amount = $3, karat = $4, notes = $5 WHERE id = $6',
-      [fromUnit, toUnit, amount, karat, notes || '', id]
+      'UPDATE transfers SET from_unit = $1, to_unit = $2, amount = $3, karat = $4, notes = $5, cinsi = $6 WHERE id = $7',
+      [fromUnit, toUnit, amount, karat, notes || '', cinsi || null, id]
     );
     
     if (result.rowCount === 0) {

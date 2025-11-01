@@ -118,6 +118,30 @@ async function migrateDatabase(client) {
       // Devam et
     }
     
+    // Check if cinsi column exists in transfers
+    try {
+      const checkCinsiResult = await client.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'transfers' 
+        AND column_name = 'cinsi'
+      `);
+      
+      if (checkCinsiResult.rows.length === 0) {
+        console.log('🔄 cinsi kolonu ekleniyor...');
+        await client.query(`
+          ALTER TABLE transfers 
+          ADD COLUMN cinsi VARCHAR(100) NULL
+        `);
+        console.log('✅ cinsi kolonu eklendi');
+      } else {
+        console.log('ℹ️ cinsi kolonu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ cinsi migration hatası:', error.message);
+      // Devam et
+    }
+    
     console.log('✅ Migration tamamlandı');
   } catch (error) {
     console.error('❌ Migration genel hatası:', error.message);
