@@ -203,6 +203,67 @@ async function migrateDatabase(client) {
       // Devam et
     }
     
+    // Add ON DELETE CASCADE to existing foreign keys (migration)
+    try {
+      // Check and update dashboard_settings foreign key
+      const checkDashboardFK = await client.query(`
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'dashboard_settings' 
+        AND constraint_type = 'FOREIGN KEY'
+        AND constraint_name LIKE '%user_id%'
+      `);
+      
+      if (checkDashboardFK.rows.length > 0) {
+        const fkName = checkDashboardFK.rows[0].constraint_name;
+        // Drop and recreate with CASCADE
+        try {
+          await client.query(`ALTER TABLE dashboard_settings DROP CONSTRAINT IF EXISTS ${fkName}`);
+          await client.query(`
+            ALTER TABLE dashboard_settings 
+            ADD CONSTRAINT dashboard_settings_user_id_fkey 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          `);
+          console.log('✅ dashboard_settings foreign key güncellendi (ON DELETE CASCADE)');
+        } catch (error) {
+          // Foreign key might already have CASCADE, or error is expected
+          console.log('ℹ️ dashboard_settings foreign key güncellemesi:', error.message);
+        }
+      }
+    } catch (error) {
+      console.error('❌ dashboard_settings foreign key migration hatası:', error.message);
+    }
+    
+    try {
+      // Check and update menu_settings foreign key
+      const checkMenuFK = await client.query(`
+        SELECT constraint_name 
+        FROM information_schema.table_constraints 
+        WHERE table_name = 'menu_settings' 
+        AND constraint_type = 'FOREIGN KEY'
+        AND constraint_name LIKE '%user_id%'
+      `);
+      
+      if (checkMenuFK.rows.length > 0) {
+        const fkName = checkMenuFK.rows[0].constraint_name;
+        // Drop and recreate with CASCADE
+        try {
+          await client.query(`ALTER TABLE menu_settings DROP CONSTRAINT IF EXISTS ${fkName}`);
+          await client.query(`
+            ALTER TABLE menu_settings 
+            ADD CONSTRAINT menu_settings_user_id_fkey 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          `);
+          console.log('✅ menu_settings foreign key güncellendi (ON DELETE CASCADE)');
+        } catch (error) {
+          // Foreign key might already have CASCADE, or error is expected
+          console.log('ℹ️ menu_settings foreign key güncellemesi:', error.message);
+        }
+      }
+    } catch (error) {
+      console.error('❌ menu_settings foreign key migration hatası:', error.message);
+    }
+    
     console.log('✅ Migration tamamlandı');
   } catch (error) {
     console.error('❌ Migration genel hatası:', error.message);
@@ -287,7 +348,7 @@ async function createTables(client) {
     // Dashboard settings
     `CREATE TABLE IF NOT EXISTS dashboard_settings (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id),
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       settings JSONB NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -295,7 +356,7 @@ async function createTables(client) {
     // Menu settings (user-specific)
     `CREATE TABLE IF NOT EXISTS menu_settings (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id),
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       settings JSONB NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_id)
