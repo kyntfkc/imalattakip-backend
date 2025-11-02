@@ -142,6 +142,37 @@ async function migrateDatabase(client) {
       // Devam et
     }
     
+    // Check if menu_settings table exists
+    try {
+      const checkMenuSettingsResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_name = 'menu_settings'
+      `);
+      
+      if (checkMenuSettingsResult.rows.length === 0) {
+        console.log('🔄 menu_settings tablosu oluşturuluyor...');
+        await client.query(`
+          CREATE TABLE menu_settings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            settings JSONB NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id)
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)
+        `);
+        console.log('✅ menu_settings tablosu oluşturuldu');
+      } else {
+        console.log('ℹ️ menu_settings tablosu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ menu_settings migration hatası:', error.message);
+      // Devam et
+    }
+    
     console.log('✅ Migration tamamlandı');
   } catch (error) {
     console.error('❌ Migration genel hatası:', error.message);
@@ -231,6 +262,15 @@ async function createTables(client) {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     
+    // Menu settings (user-specific)
+    `CREATE TABLE IF NOT EXISTS menu_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id),
+      settings JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id)
+    )`,
+    
     // System logs
     `CREATE TABLE IF NOT EXISTS system_logs (
       id SERIAL PRIMARY KEY,
@@ -255,7 +295,9 @@ async function createTables(client) {
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_type ON external_vault_transactions(type)',
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_karat ON external_vault_transactions(karat)',
     'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)',
-    'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)'
+    'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)',
+    'CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_dashboard_settings_user_id ON dashboard_settings(user_id)'
   ];
   
   for (const sql of indexes) {

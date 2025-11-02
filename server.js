@@ -19,6 +19,7 @@ const cinsiRoutes = require('./routes/cinsi');
 const companiesRoutes = require('./routes/companies');
 const logsRoutes = require('./routes/logs');
 const dashboardSettingsRoutes = require('./routes/dashboardSettings');
+const menuSettingsRoutes = require('./routes/menuSettings');
 const backupRoutes = require('./routes/backup');
 
 // Import database
@@ -120,6 +121,7 @@ app.use('/api/cinsi', cinsiRoutes);
 app.use('/api/companies', companiesRoutes);
 app.use('/api/logs', logsRoutes);
 app.use('/api/dashboard-settings', dashboardSettingsRoutes);
+app.use('/api/menu-settings', menuSettingsRoutes);
 app.use('/api/backup', backupRoutes);
 
 // Simple test endpoint
