@@ -61,7 +61,7 @@ router.post('/register', [
     .withMessage('Şifre en az 8 karakter olmalı'),
   body('role')
     .optional()
-    .isIn(['normal_user', 'admin'])
+    .isIn(['normal_user', 'user', 'admin'])
     .withMessage('Geçersiz rol')
 ], async (req, res) => {
   try {
@@ -74,7 +74,10 @@ router.post('/register', [
       });
     }
 
-    const { username, password, role = 'normal_user' } = req.body;
+    const { username, password, role: rawRole = 'normal_user' } = req.body;
+    
+    // 'user' değerini 'normal_user' olarak normalize et
+    const role = rawRole === 'user' ? 'normal_user' : rawRole;
     
     // Password policy kontrolü
     const passwordValidation = validatePassword(password);

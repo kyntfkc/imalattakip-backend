@@ -31,7 +31,10 @@ router.put('/:id/role', authenticateToken, async (req, res) => {
   }
   
   const { id } = req.params;
-  const { role } = req.body;
+  const { role: rawRole } = req.body;
+  
+  // 'user' değerini 'normal_user' olarak normalize et
+  const role = rawRole === 'user' ? 'normal_user' : rawRole;
   
   if (!['admin', 'normal_user'].includes(role)) {
     return res.status(400).json({ error: 'Geçersiz rol' });
