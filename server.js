@@ -28,6 +28,9 @@ const { initDatabase, getDatabase, closeDatabase } = require('./database/postgre
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy - Railway ve diğer reverse proxy'ler için gerekli
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
