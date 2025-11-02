@@ -207,11 +207,13 @@ async function migrateDatabase(client) {
     try {
       // Check and update dashboard_settings foreign key
       const checkDashboardFK = await client.query(`
-        SELECT constraint_name 
-        FROM information_schema.table_constraints 
-        WHERE table_name = 'dashboard_settings' 
-        AND constraint_type = 'FOREIGN KEY'
-        AND constraint_name LIKE '%user_id%'
+        SELECT tc.constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_name = 'dashboard_settings' 
+          AND tc.constraint_type = 'FOREIGN KEY'
+          AND kcu.column_name = 'user_id'
       `);
       
       if (checkDashboardFK.rows.length > 0) {
@@ -229,6 +231,8 @@ async function migrateDatabase(client) {
           // Foreign key might already have CASCADE, or error is expected
           console.log('ℹ️ dashboard_settings foreign key güncellemesi:', error.message);
         }
+      } else {
+        console.log('ℹ️ dashboard_settings foreign key bulunamadı (muhtemelen zaten CASCADE veya tablo yok)');
       }
     } catch (error) {
       console.error('❌ dashboard_settings foreign key migration hatası:', error.message);
@@ -237,11 +241,13 @@ async function migrateDatabase(client) {
     try {
       // Check and update menu_settings foreign key
       const checkMenuFK = await client.query(`
-        SELECT constraint_name 
-        FROM information_schema.table_constraints 
-        WHERE table_name = 'menu_settings' 
-        AND constraint_type = 'FOREIGN KEY'
-        AND constraint_name LIKE '%user_id%'
+        SELECT tc.constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_name = 'menu_settings' 
+          AND tc.constraint_type = 'FOREIGN KEY'
+          AND kcu.column_name = 'user_id'
       `);
       
       if (checkMenuFK.rows.length > 0) {
@@ -259,6 +265,8 @@ async function migrateDatabase(client) {
           // Foreign key might already have CASCADE, or error is expected
           console.log('ℹ️ menu_settings foreign key güncellemesi:', error.message);
         }
+      } else {
+        console.log('ℹ️ menu_settings foreign key bulunamadı (muhtemelen zaten CASCADE veya tablo yok)');
       }
     } catch (error) {
       console.error('❌ menu_settings foreign key migration hatası:', error.message);
