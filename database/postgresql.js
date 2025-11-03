@@ -7,7 +7,7 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established (Railway için artırıldı)
 });
 
 // Test the connection
@@ -24,9 +24,14 @@ async function initDatabase() {
   try {
     console.log('🔄 PostgreSQL veritabanı tabloları oluşturuluyor...');
     
+    // Test connection first
     const client = await pool.connect();
     
     try {
+      // Test query
+      await client.query('SELECT NOW()');
+      console.log('✅ PostgreSQL bağlantısı başarılı');
+      
       // Create tables
       await createTables(client);
       console.log('✅ PostgreSQL veritabanı tabloları oluşturuldu');
@@ -37,7 +42,10 @@ async function initDatabase() {
       client.release();
     }
   } catch (error) {
-    console.error('❌ Veritabanı başlatma hatası:', error);
+    console.error('❌ Veritabanı başlatma hatası:', error.message);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error detail:', error.detail);
+    // Don't throw - let server start without DB
     throw error;
   }
 }

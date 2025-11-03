@@ -202,6 +202,7 @@ async function startServer() {
     });
     
     // Initialize database in background - don't block server start
+    // Railway'de database bağlantısı biraz zaman alabilir
     setTimeout(async () => {
       try {
         console.log('🔄 Veritabanı başlatılıyor...');
@@ -209,11 +210,12 @@ async function startServer() {
         console.log('✅ Veritabanı başarıyla başlatıldı');
         logger.info('Veritabanı başarıyla başlatıldı');
       } catch (dbError) {
-        console.log('⚠️ Veritabanı başlatma hatası:', dbError.message);
+        console.error('⚠️ Veritabanı başlatma hatası:', dbError.message);
+        console.error('⚠️ Stack:', dbError.stack);
         logger.error('Veritabanı başlatma hatası:', dbError);
-        // Don't exit, let server run without DB
+        // Don't exit, let server run without DB - API endpoints will handle DB errors
       }
-    }, 2000);
+    }, 1000);
     
   } catch (error) {
     console.error('❌ Sunucu başlatılamadı:', error);
