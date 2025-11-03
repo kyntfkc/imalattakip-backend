@@ -165,6 +165,27 @@ function emitCinsiDeleted(cinsiId) {
   }
 }
 
+function emitRequiredHasCreated(itemData) {
+  if (io) {
+    io.emit('requiredHas:created', itemData);
+    console.log('📡 Gereken Has oluşturuldu eventi gönderildi:', itemData.id);
+  }
+}
+
+function emitRequiredHasUpdated(itemData) {
+  if (io) {
+    io.emit('requiredHas:updated', itemData);
+    console.log('📡 Gereken Has güncellendi eventi gönderildi:', itemData.id);
+  }
+}
+
+function emitRequiredHasDeleted(itemId) {
+  if (io) {
+    io.emit('requiredHas:deleted', { id: itemId });
+    console.log('📡 Gereken Has silindi eventi gönderildi:', itemId);
+  }
+}
+
 module.exports = {
   initializeSocket,
   getIO,
@@ -179,6 +200,9 @@ module.exports = {
   emitExternalVaultStockUpdated,
   emitCinsiCreated,
   emitCinsiUpdated,
-  emitCinsiDeleted
+  emitCinsiDeleted,
+  emitRequiredHasCreated,
+  emitRequiredHasUpdated,
+  emitRequiredHasDeleted
 };
 

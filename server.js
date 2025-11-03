@@ -21,6 +21,7 @@ const logsRoutes = require('./routes/logs');
 const dashboardSettingsRoutes = require('./routes/dashboardSettings');
 const menuSettingsRoutes = require('./routes/menuSettings');
 const backupRoutes = require('./routes/backup');
+const requiredHasRoutes = require('./routes/requiredHas');
 
 // Import database
 const { initDatabase, getDatabase, closeDatabase } = require('./database/postgresql');
@@ -127,6 +128,7 @@ app.use('/api/logs', logsRoutes);
 app.use('/api/dashboard-settings', dashboardSettingsRoutes);
 app.use('/api/menu-settings', menuSettingsRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/required-has', requiredHasRoutes);
 
 // Simple test endpoint
 app.get('/', (req, res) => {

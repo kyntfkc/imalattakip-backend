@@ -420,6 +420,19 @@ async function createTables(client) {
       entity_name VARCHAR(255) DEFAULT '',
       details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    
+    // Required Has Items
+    `CREATE TABLE IF NOT EXISTS required_has_items (
+      id SERIAL PRIMARY KEY,
+      date DATE NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      input DECIMAL(12,2) NOT NULL DEFAULT 0,
+      output DECIMAL(12,2) NOT NULL DEFAULT 0,
+      notes TEXT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -438,7 +451,9 @@ async function createTables(client) {
     'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)',
     'CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_dashboard_settings_user_id ON dashboard_settings(user_id)',
-    'CREATE INDEX IF NOT EXISTS idx_role_menu_defaults_role ON role_menu_defaults(role)'
+    'CREATE INDEX IF NOT EXISTS idx_role_menu_defaults_role ON role_menu_defaults(role)',
+    'CREATE INDEX IF NOT EXISTS idx_required_has_items_date ON required_has_items(date)',
+    'CREATE INDEX IF NOT EXISTS idx_required_has_items_user_id ON required_has_items(user_id)'
   ];
   
   for (const sql of indexes) {
