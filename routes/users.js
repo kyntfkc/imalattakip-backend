@@ -1,8 +1,37 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
+const { body, validationResult } = require('express-validator');
 const { getDatabase } = require('../database/postgresql');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Password validation
+const validatePassword = (password) => {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  if (password.length < minLength) {
+    return { valid: false, message: 'Şifre en az 8 karakter olmalı' };
+  }
+  if (!hasUpperCase) {
+    return { valid: false, message: 'Şifre en az bir büyük harf içermeli' };
+  }
+  if (!hasLowerCase) {
+    return { valid: false, message: 'Şifre en az bir küçük harf içermeli' };
+  }
+  if (!hasNumbers) {
+    return { valid: false, message: 'Şifre en az bir rakam içermeli' };
+  }
+  if (!hasSpecialChar) {
+    return { valid: false, message: 'Şifre en az bir özel karakter içermeli' };
+  }
+
+  return { valid: true };
+};
 
 // Get all users (admin only)
 router.get('/', authenticateToken, async (req, res) => {
@@ -161,6 +190,80 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
     
     res.status(500).json({ error: errorMessage });
+  }
+});
+
+// Reset user password (admin only)
+router.post('/:id/reset-password', authenticateToken, [
+  body('newPassword')
+    .isLength({ min: 8 })
+    .withMessage('Şifre en az 8 karakter olmalı')
+], async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Yetkisiz erişim. Sadece admin şifre sıfırlayabilir.' });
+  }
+  
+  try {
+    // Validation hatalarını kontrol et
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        error: 'Validasyon hatası',
+        errors: errors.array() 
+      });
+    }
+    
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    
+    // Password policy kontrolü
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message });
+    }
+    
+    const db = getDatabase();
+    
+    // Kullanıcının var olup olmadığını kontrol et
+    const userResult = await db.query(
+      'SELECT id, username FROM users WHERE id = $1',
+      [id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Yeni şifreyi hash'le
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    
+    // Şifreyi güncelle
+    await db.query(
+      'UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [hashedPassword, id]
+    );
+    
+    // Log the action
+    await db.query(
+      'INSERT INTO system_logs (username, action, entity_type, entity_name, details) VALUES ($1, $2, $3, $4, $5)',
+      [req.user.username, 'Şifre Sıfırlama', 'USER', user.username, `${user.username} kullanıcısının şifresi admin tarafından sıfırlandı`]
+    );
+    
+    global.logger.info(`Kullanıcı şifresi sıfırlandı: ${user.username} (Admin: ${req.user.username})`);
+    res.json({ 
+      message: 'Şifre başarıyla sıfırlandı',
+      userId: parseInt(id)
+    });
+  } catch (error) {
+    global.logger.error('Şifre sıfırlama hatası:', error);
+    res.status(500).json({ 
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Sunucu hatası' 
+        : error.message 
+    });
   }
 });
 

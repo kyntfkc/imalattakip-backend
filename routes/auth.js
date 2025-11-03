@@ -274,32 +274,4 @@ router.post('/logout', (req, res) => {
   res.json({ message: 'Çıkış yapıldı' });
 });
 
-// Get all users (admin only)
-router.get('/users', async (req, res) => {
-  const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Token gerekli' });
-  }
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    
-    if (decoded.role !== 'admin') {
-      return res.status(403).json({ error: 'Yetkisiz erişim' });
-    }
-    
-    const db = getDatabase();
-    const result = await db.query(
-      'SELECT id, username, role, created_at FROM users ORDER BY created_at DESC'
-    );
-    
-    global.logger.info(`Kullanıcı listesi getirildi: ${result.rows.length} kullanıcı`);
-    res.json(result.rows);
-  } catch (error) {
-    global.logger.error('Kullanıcı listesi hatası:', error);
-    res.status(401).json({ error: 'Geçersiz token' });
-  }
-});
-
 module.exports = router;
