@@ -97,13 +97,16 @@ router.post('/login', async (req, res) => {
       );
       
       global.logger.info(`Kullanıcı giriş yaptı: ${username}`);
+      // Rol normalleştirme: 'normal_user' -> 'user'
+      const normalizedRole = user.role === 'normal_user' ? 'user' : user.role;
+      
       res.json({
         message: 'Giriş başarılı',
         token,
         user: {
           id: user.id,
           username: user.username,
-          role: user.role
+          role: normalizedRole
         }
       });
     } catch (dbError) {
@@ -126,12 +129,15 @@ router.get('/verify', (req, res) => {
   
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    // Rol normalleştirme: 'normal_user' -> 'user'
+    const normalizedRole = decoded.role === 'normal_user' ? 'user' : decoded.role;
+    
     res.json({ 
       valid: true, 
       user: {
-        id: decoded.userId,
+        id: decoded.id,
         username: decoded.username,
-        role: decoded.role
+        role: normalizedRole
       }
     });
   } catch (error) {

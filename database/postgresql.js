@@ -142,6 +142,84 @@ async function migrateDatabase(client) {
       // Devam et
     }
     
+    // Check if menu_settings table exists
+    try {
+      const checkMenuSettingsResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_name = 'menu_settings'
+      `);
+      
+      if (checkMenuSettingsResult.rows.length === 0) {
+        console.log('🔄 menu_settings tablosu oluşturuluyor...');
+        await client.query(`
+          CREATE TABLE menu_settings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER UNIQUE REFERENCES users(id),
+            settings JSONB NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        await client.query('CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)');
+        console.log('✅ menu_settings tablosu oluşturuldu');
+      }
+    } catch (error) {
+      console.error('❌ menu_settings migration hatası:', error.message);
+    }
+    
+    // Check if menu_role_defaults table exists
+    try {
+      const checkMenuRoleDefaultsResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_name = 'menu_role_defaults'
+      `);
+      
+      if (checkMenuRoleDefaultsResult.rows.length === 0) {
+        console.log('🔄 menu_role_defaults tablosu oluşturuluyor...');
+        await client.query(`
+          CREATE TABLE menu_role_defaults (
+            id SERIAL PRIMARY KEY,
+            role VARCHAR(20) UNIQUE NOT NULL,
+            settings JSONB NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        await client.query('CREATE INDEX IF NOT EXISTS idx_menu_role_defaults_role ON menu_role_defaults(role)');
+        
+        // Normal kullanıcılar için varsayılan ayarları ekle
+        const userDefaults = {
+          visibleMenus: {
+            dashboard: false,
+            'ana-kasa': false,
+            'yarimamul': false,
+            'lazer-kesim': true,
+            'tezgah': true,
+            'cila': true,
+            'external-vault': false,
+            'dokum': false,
+            'tedarik': false,
+            'satis': false,
+            'required-has': false,
+            'reports': false,
+            'companies': false,
+            'logs': false,
+            'settings': false,
+            'user-management': false,
+          }
+        };
+        
+        await client.query(
+          'INSERT INTO menu_role_defaults (role, settings) VALUES ($1, $2)',
+          ['user', userDefaults]
+        );
+        
+        console.log('✅ menu_role_defaults tablosu oluşturuldu ve normal kullanıcı varsayılanları eklendi');
+      }
+    } catch (error) {
+      console.error('❌ menu_role_defaults migration hatası:', error.message);
+    }
+    
     console.log('✅ Migration tamamlandı');
   } catch (error) {
     console.error('❌ Migration genel hatası:', error.message);
@@ -231,6 +309,22 @@ async function createTables(client) {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     
+    // Menu settings (kullanıcı override'ları)
+    `CREATE TABLE IF NOT EXISTS menu_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER UNIQUE REFERENCES users(id),
+      settings JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    
+    // Menu role defaults (rol varsayılanları)
+    `CREATE TABLE IF NOT EXISTS menu_role_defaults (
+      id SERIAL PRIMARY KEY,
+      role VARCHAR(20) UNIQUE NOT NULL,
+      settings JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    
     // System logs
     `CREATE TABLE IF NOT EXISTS system_logs (
       id SERIAL PRIMARY KEY,
@@ -255,7 +349,9 @@ async function createTables(client) {
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_type ON external_vault_transactions(type)',
     'CREATE INDEX IF NOT EXISTS idx_external_vault_transactions_karat ON external_vault_transactions(karat)',
     'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)',
-    'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)'
+    'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)',
+    'CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_menu_role_defaults_role ON menu_role_defaults(role)'
   ];
   
   for (const sql of indexes) {
