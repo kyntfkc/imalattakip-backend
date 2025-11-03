@@ -18,6 +18,9 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Başarılı girişlerde sayacı sıfırla
+  validate: {
+    trustProxy: false // Trust proxy validation'ı devre dışı bırak
+  }
 });
 
 // Password validation

@@ -54,7 +54,15 @@ const limiter = rateLimit({
   message: 'Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin.',
   standardHeaders: true,
   legacyHeaders: false,
-  validate: false, // Railway gibi proxy arkasında trust proxy gereklidir, güvenlik uyarısını devre dışı bırak
+  validate: {
+    trustProxy: false, // Trust proxy validation'ı devre dışı bırak (Railway için)
+    xForwardedForHeader: false
+  },
+  skip: (req) => {
+    // Railway gibi proxy arkasında çalışırken gerekli
+    // Trust proxy ayarı validation hatası vermemesi için skip kullanılıyor
+    return false;
+  }
 });
 app.use(limiter);
 
