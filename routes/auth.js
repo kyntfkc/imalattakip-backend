@@ -202,14 +202,10 @@ router.post('/login', loginLimiter, [
       );
       
       global.logger.info(`Kullanıcı giriş yaptı: ${username}`);
-<<<<<<< HEAD
       // Rol normalleştirme: 'normal_user' -> 'user'
       const normalizedRole = user.role === 'normal_user' ? 'user' : user.role;
       
-=======
-      
       // Token'ı hem cookie hem de response body'de gönder (geriye uyumluluk için)
->>>>>>> f0fdb47052067edd8932ac8ba845f663bb06da37
       res.json({
         message: 'Giriş başarılı',
         token, // Geriye uyumluluk için
@@ -254,11 +250,7 @@ router.get('/verify', (req, res) => {
     res.json({ 
       valid: true, 
       user: {
-<<<<<<< HEAD
-        id: decoded.id,
-=======
         id: decoded.id || decoded.userId,
->>>>>>> f0fdb47052067edd8932ac8ba845f663bb06da37
         username: decoded.username,
         role: normalizedRole
       }
