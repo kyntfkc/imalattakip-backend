@@ -150,14 +150,24 @@ router.post('/login', loginLimiter, [
     const db = getDatabase();
     
     try {
+      // Database connection test
+      if (!db) {
+        global.logger.error('Database connection is null');
+        return res.status(500).json({ error: 'Veritabanı bağlantısı yok' });
+      }
+      
       // Parameterized query - SQL injection koruması
+      global.logger.info(`Login attempt for user: ${username}`);
       const result = await db.query(
         'SELECT id, username, password, role FROM users WHERE username = $1',
         [username]
       );
       
+      global.logger.info(`User query result: ${result.rows.length} rows found`);
+      
       if (result.rows.length === 0) {
         // Güvenlik: Aynı hata mesajı (timing attack koruması)
+        global.logger.warn(`User not found: ${username}`);
         await new Promise(resolve => setTimeout(resolve, 100)); // Timing attack koruması
         return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
       }
@@ -165,13 +175,17 @@ router.post('/login', loginLimiter, [
       const user = result.rows[0];
       
       // Check password
+      global.logger.info(`Checking password for user: ${username}`);
       const isValidPassword = await bcrypt.compare(password, user.password);
       
       if (!isValidPassword) {
         // Güvenlik: Aynı hata mesajı (timing attack koruması)
+        global.logger.warn(`Invalid password for user: ${username}`);
         await new Promise(resolve => setTimeout(resolve, 100)); // Timing attack koruması
         return res.status(401).json({ error: 'Geçersiz kullanıcı adı veya şifre' });
       }
+      
+      global.logger.info(`Password valid for user: ${username}`);
       
       // Generate JWT token
       const token = jwt.sign(
