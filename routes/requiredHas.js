@@ -146,7 +146,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     global.logger.info(`Required Has silindi: ${id}`);
     
     // Emit real-time event
-    emitRequiredHasDeleted({ id: parseInt(id) });
+    emitRequiredHasDeleted(parseInt(id));
     
     res.json({ message: 'Kayıt başarıyla silindi' });
   } catch (error) {
