@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const winston = require('winston');
 
@@ -27,24 +28,61 @@ const { initDatabase, getDatabase, closeDatabase } = require('./database/postgre
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security middleware
-app.use(helmet());
+// Trust proxy - Railway ve diğer reverse proxy'ler için gerekli
+app.set('trust proxy', true);
 
-// Rate limiting
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
+
+// Cookie parser - HttpOnly cookies için
+app.use(cookieParser());
+
+// Rate limiting - Genel
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // limit each IP to 1000 requests per windowMs
-  message: 'Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin.'
+  message: 'Çok fazla istek gönderildi, lütfen daha sonra tekrar deneyin.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false, // Railway gibi proxy arkasında trust proxy gereklidir, güvenlik uyarısını devre dışı bırak
 });
 app.use(limiter);
 
-// CORS configuration - Socket.io için
-app.use(cors({
-  origin: "*", // Tüm origin'lere izin ver (Railway için)
+// CORS configuration - Güvenli ayarlar
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Development'ta veya origin belirtilmemişse izin ver
+    if (process.env.NODE_ENV !== 'production' || !origin) {
+      return callback(null, true);
+    }
+    
+    // Production'da sadece belirtilen origin'lere izin ver
+    const allowedOrigins = process.env.FRONTEND_URL 
+      ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+      : [];
+    
+    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('CORS policy tarafından izin verilmedi'));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
-}));
+  credentials: true, // Cookie gönderimi için
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Set-Cookie"],
+};
+
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(bodyParser.json({ limit: '10mb' }));

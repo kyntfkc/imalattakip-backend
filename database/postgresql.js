@@ -155,6 +155,7 @@ async function migrateDatabase(client) {
         await client.query(`
           CREATE TABLE menu_settings (
             id SERIAL PRIMARY KEY,
+<<<<<<< HEAD
             user_id INTEGER UNIQUE REFERENCES users(id),
             settings JSONB NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -179,12 +180,45 @@ async function migrateDatabase(client) {
         console.log('🔄 menu_role_defaults tablosu oluşturuluyor...');
         await client.query(`
           CREATE TABLE menu_role_defaults (
+=======
+            user_id INTEGER REFERENCES users(id),
+            settings JSONB NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id)
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)
+        `);
+        console.log('✅ menu_settings tablosu oluşturuldu');
+      } else {
+        console.log('ℹ️ menu_settings tablosu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ menu_settings migration hatası:', error.message);
+      // Devam et
+    }
+    
+    // Check if role_menu_defaults table exists
+    try {
+      const checkRoleDefaultsResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_name = 'role_menu_defaults'
+      `);
+      
+      if (checkRoleDefaultsResult.rows.length === 0) {
+        console.log('🔄 role_menu_defaults tablosu oluşturuluyor...');
+        await client.query(`
+          CREATE TABLE role_menu_defaults (
+>>>>>>> f0fdb47052067edd8932ac8ba845f663bb06da37
             id SERIAL PRIMARY KEY,
             role VARCHAR(20) UNIQUE NOT NULL,
             settings JSONB NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `);
+<<<<<<< HEAD
         await client.query('CREATE INDEX IF NOT EXISTS idx_menu_role_defaults_role ON menu_role_defaults(role)');
         
         // Normal kullanıcılar için varsayılan ayarları ekle
@@ -218,6 +252,87 @@ async function migrateDatabase(client) {
       }
     } catch (error) {
       console.error('❌ menu_role_defaults migration hatası:', error.message);
+=======
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS idx_role_menu_defaults_role ON role_menu_defaults(role)
+        `);
+        console.log('✅ role_menu_defaults tablosu oluşturuldu');
+      } else {
+        console.log('ℹ️ role_menu_defaults tablosu zaten mevcut');
+      }
+    } catch (error) {
+      console.error('❌ role_menu_defaults migration hatası:', error.message);
+      // Devam et
+    }
+    
+    // Add ON DELETE CASCADE to existing foreign keys (migration)
+    try {
+      // Check and update dashboard_settings foreign key
+      const checkDashboardFK = await client.query(`
+        SELECT tc.constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_name = 'dashboard_settings' 
+          AND tc.constraint_type = 'FOREIGN KEY'
+          AND kcu.column_name = 'user_id'
+      `);
+      
+      if (checkDashboardFK.rows.length > 0) {
+        const fkName = checkDashboardFK.rows[0].constraint_name;
+        // Drop and recreate with CASCADE
+        try {
+          await client.query(`ALTER TABLE dashboard_settings DROP CONSTRAINT IF EXISTS ${fkName}`);
+          await client.query(`
+            ALTER TABLE dashboard_settings 
+            ADD CONSTRAINT dashboard_settings_user_id_fkey 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          `);
+          console.log('✅ dashboard_settings foreign key güncellendi (ON DELETE CASCADE)');
+        } catch (error) {
+          // Foreign key might already have CASCADE, or error is expected
+          console.log('ℹ️ dashboard_settings foreign key güncellemesi:', error.message);
+        }
+      } else {
+        console.log('ℹ️ dashboard_settings foreign key bulunamadı (muhtemelen zaten CASCADE veya tablo yok)');
+      }
+    } catch (error) {
+      console.error('❌ dashboard_settings foreign key migration hatası:', error.message);
+    }
+    
+    try {
+      // Check and update menu_settings foreign key
+      const checkMenuFK = await client.query(`
+        SELECT tc.constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_name = 'menu_settings' 
+          AND tc.constraint_type = 'FOREIGN KEY'
+          AND kcu.column_name = 'user_id'
+      `);
+      
+      if (checkMenuFK.rows.length > 0) {
+        const fkName = checkMenuFK.rows[0].constraint_name;
+        // Drop and recreate with CASCADE
+        try {
+          await client.query(`ALTER TABLE menu_settings DROP CONSTRAINT IF EXISTS ${fkName}`);
+          await client.query(`
+            ALTER TABLE menu_settings 
+            ADD CONSTRAINT menu_settings_user_id_fkey 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          `);
+          console.log('✅ menu_settings foreign key güncellendi (ON DELETE CASCADE)');
+        } catch (error) {
+          // Foreign key might already have CASCADE, or error is expected
+          console.log('ℹ️ menu_settings foreign key güncellemesi:', error.message);
+        }
+      } else {
+        console.log('ℹ️ menu_settings foreign key bulunamadı (muhtemelen zaten CASCADE veya tablo yok)');
+      }
+    } catch (error) {
+      console.error('❌ menu_settings foreign key migration hatası:', error.message);
+>>>>>>> f0fdb47052067edd8932ac8ba845f663bb06da37
     }
     
     console.log('✅ Migration tamamlandı');
@@ -304,7 +419,24 @@ async function createTables(client) {
     // Dashboard settings
     `CREATE TABLE IF NOT EXISTS dashboard_settings (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id),
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      settings JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    
+    // Menu settings (user-specific)
+    `CREATE TABLE IF NOT EXISTS menu_settings (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      settings JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id)
+    )`,
+    
+    // Role-based menu defaults (system-wide)
+    `CREATE TABLE IF NOT EXISTS role_menu_defaults (
+      id SERIAL PRIMARY KEY,
+      role VARCHAR(20) UNIQUE NOT NULL,
       settings JSONB NOT NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -351,7 +483,12 @@ async function createTables(client) {
     'CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)',
     'CREATE INDEX IF NOT EXISTS idx_system_logs_username ON system_logs(username)',
     'CREATE INDEX IF NOT EXISTS idx_menu_settings_user_id ON menu_settings(user_id)',
+<<<<<<< HEAD
     'CREATE INDEX IF NOT EXISTS idx_menu_role_defaults_role ON menu_role_defaults(role)'
+=======
+    'CREATE INDEX IF NOT EXISTS idx_dashboard_settings_user_id ON dashboard_settings(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_role_menu_defaults_role ON role_menu_defaults(role)'
+>>>>>>> f0fdb47052067edd8932ac8ba845f663bb06da37
   ];
   
   for (const sql of indexes) {
